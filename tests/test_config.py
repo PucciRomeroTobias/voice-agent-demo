@@ -43,7 +43,23 @@ def test_metadata_selects_an_allowed_scenario_with_its_own_voice() -> None:
 
     assert config.scenario.id == "support"
     assert config.tts_voice == "Olivia"
-    assert "first-line support" in config.system_prompt
+    assert "affected area, impact" in config.system_prompt
+    assert config.greeting.startswith("Hello. I am a virtual agent")
+
+
+@pytest.mark.parametrize(
+    ("metadata", "expected_phrase"),
+    [
+        ('{"language":"es", "scenario":"clinic"}', "agente virtual para ayudar a reservar turnos"),
+        ('{"language":"en", "scenario":"support"}', "virtual agent here to help with support"),
+    ],
+)
+def test_greeting_introduces_the_demo_and_its_limits(
+    metadata: str, expected_phrase: str
+) -> None:
+    config = resolve_session_config(metadata, {})
+
+    assert expected_phrase in config.greeting
 
 
 def test_invalid_scenario_falls_back_to_the_allowed_default() -> None:
@@ -62,25 +78,51 @@ def test_metadata_scenario_wins_over_local_console_default() -> None:
 
 
 @pytest.mark.asyncio
-async def test_each_scenario_exposes_only_its_authorized_mock_tool() -> None:
+async def test_each_scenario_mock_requires_all_of_its_business_inputs() -> None:
     expected_tools = {
-        "clinic": "reserve_appointment",
-        "saas_b2b": "create_qualified_lead",
-        "support": "escalate_support_case",
+        "clinic": (
+            "reserve_appointment",
+            {"appointment_date": "2026-09-10", "appointment_time": "14:30"},
+        ),
+        "saas_b2b": (
+            "create_qualified_lead",
+            {
+                "primary_need": "operaciones",
+                "demo_date": "2026-09-11",
+                "demo_time": "10:00",
+            },
+        ),
+        "support": (
+            "escalate_support_case",
+            {
+                "issue_area": "facturación",
+                "severity": "alto",
+                "issue_summary": "El cobro se duplicó.",
+            },
+        ),
     }
 
-    for scenario_id, tool_name in expected_tools.items():
+    for scenario_id, (tool_name, tool_args) in expected_tools.items():
         config = resolve_session_config(f'{{"scenario":"{scenario_id}"}}', {})
         session = ScenarioSession(config.scenario)
         tools = tools_for(session)
 
         assert [tool.info.name for tool in tools] == [tool_name]
-        result = await tools[0]()
+        result = await tools[0](**tool_args)
         assert result == {
             "scenario": scenario_id,
             "tools_used": [tool_name],
-            "outcome": config.scenario.outcome,
+            "outcome": {**config.scenario.outcome, "details": tool_args},
         }
+
+
+@pytest.mark.asyncio
+async def test_clinic_tool_cannot_run_without_a_date_and_time() -> None:
+    config = resolve_session_config('{"scenario":"clinic"}', {})
+    tool = tools_for(ScenarioSession(config.scenario))[0]
+
+    with pytest.raises(TypeError):
+        await tool(appointment_date="2026-09-10")
 
 
 def test_mock_state_does_not_cross_sessions() -> None:
@@ -88,7 +130,7 @@ def test_mock_state_does_not_cross_sessions() -> None:
     first_session = ScenarioSession(config.scenario)
     second_session = ScenarioSession(config.scenario)
 
-    first_session.record_tool_use()
+    first_session.record_tool_use({"primary_need": "ventas"})
 
     assert first_session.result()["tools_used"] == ["create_qualified_lead"]
     assert second_session.result()["tools_used"] == []

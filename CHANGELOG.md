@@ -7,6 +7,23 @@ versionado seguirá [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Cada escenario reúne los datos necesarios antes de invocar su mock: fecha y
+  hora para Clínica, necesidad más fecha y hora para SaaS, y área, impacto y
+  descripción para Soporte. Ningún mock crea recursos reales.
+- Los saludos iniciales presentan el rol del agente y hacen la primera pregunta
+  útil, sin imponer horarios ni datos de prueba.
+
+### Fixed
+
+- El resultado de una herramienta mockeada vuelve a llegar a la UI al terminar
+  su ejecución.
+- La web ahora renderiza el audio remoto de LiveKit y ofrece activar audio si el
+  navegador bloquea la reproducción automática.
+- El agente se despide y termina la llamada cuando la persona expresa que ya no
+  necesita ayuda.
+
 ### Added
 
 - Endpoint server-side para emitir tokens breves de LiveKit con rooms únicas,

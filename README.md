@@ -27,6 +27,23 @@ versionan ni se exponen al browser.
 
 ## Probar localmente
 
+Para levantar el worker y la web juntos, desde la raíz del repositorio:
+
+```sh
+./scripts/dev.sh
+```
+
+Desde la carpeta contenedora `contratos-part-time` funciona el mismo comando:
+
+```sh
+./scripts/dev.sh
+```
+
+El comando comparte en memoria las credenciales de `.env.local` con ambos
+procesos y los detiene juntos con `Ctrl+C`. `web/.env.local` es un enlace local
+al mismo archivo, por lo que `cd web && npm run dev` también funciona sin
+duplicar secretos.
+
 El modo `console` usa español y Clínica por defecto. Para comprobar otro
 idioma o escenario, cambiá `VOICE_DEMO_LANGUAGE=en` o
 `VOICE_DEMO_SCENARIO=support` en `.env.local` antes de iniciar una nueva

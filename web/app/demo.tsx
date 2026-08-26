@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  RoomAudioRenderer,
   SessionProvider,
+  StartAudio,
   useAgent,
   useSession,
   useSessionMessages,
@@ -15,7 +17,7 @@ type DemoConfig = { language: Language; scenario: ScenarioId };
 type DemoResult = {
   scenario: ScenarioId;
   tools_used: string[];
-  outcome: { type: string; summary: string } | null;
+  outcome: { type: string; summary: string; details?: Record<string, string> } | null;
 };
 
 const scenarios: Record<
@@ -63,6 +65,8 @@ function CallPanel({
 
   return (
     <section className="call-panel" aria-live="polite">
+      <RoomAudioRenderer />
+      <StartAudio label="Activar audio" />
       <div className="status-row">
         <span className="status-dot" />
         <span>{agent.state === "listening" ? "Escuchando" : agent.state}</span>
@@ -207,6 +211,13 @@ export function Demo() {
           <>
             <h2>{scenarios[result.scenario].label}</h2>
             <p>{result.outcome.summary}</p>
+            {result.outcome.details && (
+              <p className="muted">
+                Datos simulados: {Object.entries(result.outcome.details)
+                  .map(([key, value]) => `${key}: ${value}`)
+                  .join(" · ")}
+              </p>
+            )}
             <p className="muted">Herramienta usada: {result.tools_used.join(", ")}</p>
           </>
         ) : (
