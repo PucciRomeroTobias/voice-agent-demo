@@ -10,6 +10,16 @@ El alcance de producto y las decisiones canónicas se gestionan en Linear. La
 implementación local no debe inventar escenarios, integraciones o requisitos
 fuera de los tickets activos.
 
+## Principios de código
+
+- KISS: preferir la solución más pequeña y legible que satisfaga el ticket.
+- YAGNI: no introducir extensiones, capas o configuraciones para futuros
+  escenarios hasta que un ticket las requiera.
+- DRY: eliminar duplicación sólo cuando comparta una responsabilidad real; no
+  crear abstracciones genéricas por coincidencias superficiales.
+- Mantener módulos con una responsabilidad clara y nombres del dominio de la
+  demo. Favorecer funciones puras para configuración y validación.
+
 ## Mapa del código
 
 - `src/agent.py`: único entrypoint de LiveKit; conserva este path para la CLI y
@@ -47,9 +57,24 @@ No simules esa verificación ni agregues credenciales de prueba a archivos.
   variables, nunca valores sensibles.
 - Escribir pruebas para toda modificación de selección de idioma, metadata o
   configuración de sesión.
-- Actualizar `CHANGELOG.md` bajo `Unreleased` para cambios visibles, y
-  `docs/architecture.md` si cambia el contrato entre web, token endpoint y
-  agente.
+
+## Documentación al cerrar un issue
+
+Linear es el registro canónico del issue: al cerrarlo, registrar ahí el
+resultado, las verificaciones y las decisiones tomadas. No crear un documento
+por ticket ni copiar su narrativa al repositorio.
+
+Actualizar sólo el artefacto durable que corresponda:
+
+| Si cambió… | Actualizar… |
+| --- | --- |
+| Un contrato, límite, componente o flujo entre cliente, endpoint y agente | `docs/architecture.md` |
+| Un hallazgo de investigación que seguirá guiando decisiones | `docs/research/<tema>.md`, con fuentes primarias y su aplicación concreta |
+| El comportamiento, capacidad o forma de usar el repositorio | `CHANGELOG.md` bajo `Unreleased` |
+| La instalación o los comandos que necesita una persona | `README.md` |
+
+Si no aplica ninguna fila, alcanza con Linear. La documentación debe decir el
+estado actual del sistema, no relatar el proceso de implementación.
 
 ## Cómo hacer cambios seguros
 
