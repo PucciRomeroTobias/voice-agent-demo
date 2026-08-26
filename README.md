@@ -2,7 +2,7 @@
 
 Runtime Python de la demo pública de Voice Agent. Incluye el pipeline de voz
 bilingüe y tres escenarios mockeados por sesión: Clínica, SaaS B2B y Soporte.
-La página web usa el endpoint de tokens que se incorpora en el ticket siguiente.
+La página web usa un endpoint server-side para emitir tokens de sesión de LiveKit.
 
 ## Requisitos
 
@@ -16,11 +16,14 @@ La página web usa el endpoint de tokens que se incorpora en el ticket siguiente
 ```sh
 cp .env.example .env.local
 uv sync
-cd web && npm install
+cd web && cp .env.example .env.local && npm install
 ```
 
-Completá `LIVEKIT_URL`, `LIVEKIT_API_KEY` y `LIVEKIT_API_SECRET` solamente en
-`.env.local`. Nunca se versionan.
+Completá `LIVEKIT_URL`, `LIVEKIT_API_KEY` y `LIVEKIT_API_SECRET` en los dos
+archivos `.env.local`: el de raíz para el agente Python y `web/.env.local` para
+el endpoint que emite tokens. Si más adelante se aloja la web en Vercel, cargá
+esas mismas variables sólo como variables de entorno del proyecto. Nunca se
+versionan ni se exponen al browser.
 
 ## Probar localmente
 

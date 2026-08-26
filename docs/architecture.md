@@ -14,8 +14,11 @@ Cliente web → endpoint de tokens → room y metadata del job → voice-demo
                                                 STT → LLM → TTS
 ```
 
-El endpoint todavía no forma parte de este repositorio. Cuando exista, deberá
-iniciar el dispatch explícito con `agent_name = voice-demo` y metadata JSON.
+El endpoint `web/app/api/livekit-token/route.ts` valida la configuración,
+genera una room e identidad opacas por sesión y emite un token de participante
+válido por diez minutos. El token incluye el dispatch explícito con
+`agent_name = voice-demo` y metadata JSON; el navegador recibe únicamente
+`server_url` y `participant_token`.
 
 ## Contrato de metadata
 
@@ -46,4 +49,5 @@ secretos ni estado interno del agente.
 - Sin cambios de idioma, prompt, voz o herramientas durante una llamada.
 - Los mocks viven sólo en memoria por sesión. Cada uno devuelve un resultado
   estructurado con escenario, herramientas usadas y resultado para la UI.
-- La página web no contiene secretos; la emisión de tokens sigue pendiente.
+- La página web no contiene secretos; el endpoint sólo los lee en el runtime
+  server-side mediante `LIVEKIT_URL`, `LIVEKIT_API_KEY` y `LIVEKIT_API_SECRET`.

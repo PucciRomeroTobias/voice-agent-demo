@@ -9,6 +9,8 @@ versionado seguirá [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Endpoint server-side para emitir tokens breves de LiveKit con rooms únicas,
+  validación de idioma/escenario y dispatch explícito del agente.
 - Página responsive de la demo con Session + TokenSource, transcripciones,
   estados de llamada y resumen de negocio recibido por datos de LiveKit.
 - Registro de escenarios Clínica, SaaS B2B y Soporte con prompts, voces,
