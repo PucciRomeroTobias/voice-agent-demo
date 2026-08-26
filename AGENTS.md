@@ -1,35 +1,17 @@
-# Voice Agent Demo — guía para agentes
+# Voice Agent Demo
 
-## Objetivo del repositorio
+Demo pública bilingüe con LiveKit Cloud. No persistir ni registrar audio,
+transcripciones, PII, tokens ni secretos. El alcance canónico vive en Linear:
+no inventar requisitos fuera del ticket activo.
 
-Este repositorio contiene la demo pública de un agente de voz bilingüe. Debe
-mostrar una conversación fluida en Español o English con LiveKit Cloud, sin
-persistencia ni datos personales.
+- `src/agent.py` es el único entrypoint y `AGENT_NAME = "voice-demo"` no cambia.
+- El idioma se decide al inicio y permanece estable durante la sesión.
+- Configuración, prompts y voces se mantienen fuera del entrypoint; usar
+  funciones simples y sin abstracciones preventivas.
+- `.env.local` es local; `.env.example` sólo contiene nombres de variables.
+- Cambios en idioma, metadata o configuración de sesión requieren pruebas.
 
-El alcance de producto y las decisiones canónicas se gestionan en Linear. La
-implementación local no debe inventar escenarios, integraciones o requisitos
-fuera de los tickets activos.
-
-## Principios de código
-
-- KISS: preferir la solución más pequeña y legible que satisfaga el ticket.
-- YAGNI: no introducir extensiones, capas o configuraciones para futuros
-  escenarios hasta que un ticket las requiera.
-- DRY: eliminar duplicación sólo cuando comparta una responsabilidad real; no
-  crear abstracciones genéricas por coincidencias superficiales.
-- Mantener módulos con una responsabilidad clara y nombres del dominio de la
-  demo. Favorecer funciones puras para configuración y validación.
-
-## Mapa del código
-
-- `src/agent.py`: único entrypoint de LiveKit; conserva este path para la CLI y
-  el futuro despliegue.
-- `src/voice_demo/config.py`: configuración no secreta e inmutable por sesión.
-- `tests/`: pruebas rápidas, deterministas y sin red.
-- `docs/architecture.md`: límites del runtime y contrato de configuración.
-- `CHANGELOG.md`: registro de cambios orientado a usuarios del repositorio.
-
-## Comandos obligatorios antes de entregar un cambio
+Antes de entregar un cambio, ejecutar:
 
 ```sh
 uv sync
@@ -37,56 +19,11 @@ uv run pytest
 uv run ruff check src tests
 ```
 
-Para comprobar voz real, sólo cuando exista `.env.local` con credenciales
-válidas de LiveKit Cloud:
+Sólo con credenciales reales en `.env.local`, se puede verificar voz mediante
+`uv run python src/agent.py console`; no simularla.
 
-```sh
-uv run python src/agent.py console
-```
-
-No simules esa verificación ni agregues credenciales de prueba a archivos.
-
-## Reglas de implementación
-
-- Mantener `AGENT_NAME = "voice-demo"` estable. Cambiarlo rompe el dispatch.
-- El idioma se elige al comienzo de la sesión y no cambia durante ella.
-- Separar prompts, voces y configuración no secreta del entrypoint. Evitar
-  abstracciones preventivas: los escenarios mockeados pertenecen a su ticket.
-- No registrar ni persistir audio, transcripciones, PII, tokens o secretos.
-- Mantener `.env.local` local y actualizar `.env.example` sólo con nombres de
-  variables, nunca valores sensibles.
-- Escribir pruebas para toda modificación de selección de idioma, metadata o
-  configuración de sesión.
-
-## Documentación al cerrar un issue
-
-Linear es el registro canónico del issue: al cerrarlo, registrar ahí el
-resultado, las verificaciones y las decisiones tomadas. No crear un documento
-por ticket ni copiar su narrativa al repositorio.
-
-Actualizar sólo el artefacto durable que corresponda:
-
-| Si cambió… | Actualizar… |
-| --- | --- |
-| Un contrato, límite, componente o flujo entre cliente, endpoint y agente | `docs/architecture.md` |
-| Un hallazgo de investigación que seguirá guiando decisiones | `docs/research/<tema>.md`, con fuentes primarias y su aplicación concreta |
-| El comportamiento, capacidad o forma de usar el repositorio | `CHANGELOG.md` bajo `Unreleased` |
-| La instalación o los comandos que necesita una persona | `README.md` |
-
-Si no aplica ninguna fila, alcanza con Linear. La documentación debe decir el
-estado actual del sistema, no relatar el proceso de implementación.
-
-## Cómo hacer cambios seguros
-
-1. Antes de crear tickets o inferir alcance, buscá en Linear en todos los
-   estados (incluidos los cerrados), y leé el ticket padre, los relacionados y
-   sus dependencias. El listado de issues abiertos no reemplaza esa búsqueda.
-2. Leé el ticket activo y estos archivos antes de editar.
-3. Hacé el cambio más chico que cumpla el criterio de aceptación.
-4. Ejecutá las verificaciones aplicables e informá exactamente cuáles no fueron
-   posibles y por qué.
-5. Al cerrar un ticket en Linear, si las verificaciones aplicables terminaron
-   correctamente, hacé `git add` sólo de sus archivos, `git commit` y
-   `git push` a la rama actual sin pedir una confirmación adicional. No
-   incluyas cambios ajenos; si el commit o push falla, informalo con su causa.
-   El deploy sigue requiriendo autorización explícita.
+Documentar sólo cambios durables: arquitectura en `docs/architecture.md`,
+hallazgos durables en `docs/research/`, comportamiento en `CHANGELOG.md` y
+onboarding en `README.md`. Al cerrar un ticket, registrar resultado y
+verificaciones en Linear. Nunca incluir cambios ajenos en commits o pushes;
+un deploy exige autorización explícita.
