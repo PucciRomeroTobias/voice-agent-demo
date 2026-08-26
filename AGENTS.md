@@ -78,8 +78,15 @@ estado actual del sistema, no relatar el proceso de implementación.
 
 ## Cómo hacer cambios seguros
 
-1. Leé el ticket activo y estos archivos antes de editar.
-2. Hacé el cambio más chico que cumpla el criterio de aceptación.
-3. Ejecutá las verificaciones aplicables e informá exactamente cuáles no fueron
+1. Antes de crear tickets o inferir alcance, buscá en Linear en todos los
+   estados (incluidos los cerrados), y leé el ticket padre, los relacionados y
+   sus dependencias. El listado de issues abiertos no reemplaza esa búsqueda.
+2. Leé el ticket activo y estos archivos antes de editar.
+3. Hacé el cambio más chico que cumpla el criterio de aceptación.
+4. Ejecutá las verificaciones aplicables e informá exactamente cuáles no fueron
    posibles y por qué.
-4. No hagas `git commit`, `git push` ni deploy sin autorización explícita.
+5. Al cerrar un ticket en Linear, si las verificaciones aplicables terminaron
+   correctamente, hacé `git add` sólo de sus archivos, `git commit` y
+   `git push` a la rama actual sin pedir una confirmación adicional. No
+   incluyas cambios ajenos; si el commit o push falla, informalo con su causa.
+   El deploy sigue requiriendo autorización explícita.

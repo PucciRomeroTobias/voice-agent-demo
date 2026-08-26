@@ -9,6 +9,10 @@ versionado seguirá [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Página responsive de la demo con Session + TokenSource, transcripciones,
+  estados de llamada y resumen de negocio recibido por datos de LiveKit.
+- Registro de escenarios Clínica, SaaS B2B y Soporte con prompts, voces,
+  datos de prueba, mocks deterministas y resultados estructurados por sesión.
 - Runtime inicial de LiveKit Agents en Python.
 - Configuración inmutable de idioma por sesión para Español e English.
 - Pipeline STT → LLM → TTS con LiveKit Inference.

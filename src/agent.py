@@ -1,5 +1,7 @@
 """Entrypoint del agente LiveKit de la demo pública."""
 
+import json
+
 from dotenv import load_dotenv
 from livekit.agents import (
     Agent,
@@ -12,15 +14,18 @@ from livekit.agents import (
 )
 
 from voice_demo.config import AGENT_NAME, SessionConfig, resolve_session_config
+from voice_demo.scenarios import ScenarioSession, tools_for
 
 load_dotenv(".env.local")
 
 
 class VoiceDemoAgent(Agent):
     def __init__(self, config: SessionConfig) -> None:
+        self.scenario_session = ScenarioSession(config.scenario)
         super().__init__(
             llm=inference.LLM(model="google/gemma-4-31b-it"),
             instructions=config.system_prompt,
+            tools=tools_for(self.scenario_session),
         )
 
 
@@ -35,6 +40,7 @@ async def voice_demo(ctx: JobContext) -> None:
     ctx.log_context_fields = {
         "room": ctx.room.name,
         "language": config.language,
+        "scenario": config.scenario.id,
     }
 
     session = AgentSession(
@@ -50,8 +56,18 @@ async def voice_demo(ctx: JobContext) -> None:
             preemptive_generation={"enabled": True},
         ),
     )
+    agent = VoiceDemoAgent(config)
 
-    await session.start(agent=VoiceDemoAgent(config), room=ctx.room)
+    @session.on("function_tools_executed")
+    def publish_scenario_result(_: object) -> None:
+        """Comparte sólo el resumen seguro que consumirá la UI al finalizar."""
+
+        ctx.room.local_participant.publish_data(
+            json.dumps(agent.scenario_session.result()),
+            topic="voice-demo-result",
+        )
+
+    await session.start(agent=agent, room=ctx.room)
     await ctx.connect()
     await session.generate_reply(instructions=config.greeting)
 

@@ -17,22 +17,33 @@ Cliente web → endpoint de tokens → room y metadata del job → voice-demo
 El endpoint todavía no forma parte de este repositorio. Cuando exista, deberá
 iniciar el dispatch explícito con `agent_name = voice-demo` y metadata JSON.
 
-## Contrato actual de metadata
+## Contrato de metadata
 
 ```json
-{ "language": "es" }
+{ "language": "es", "scenario": "clinic" }
 ```
 
-Los únicos valores permitidos hoy son `es` y `en`. La metadata prevalece sobre
+Los idiomas permitidos son `es` y `en`; los escenarios permitidos son
+`clinic`, `saas_b2b` y `support`. La metadata prevalece sobre
 `VOICE_DEMO_LANGUAGE`, que es un fallback exclusivo para `console`. La
 configuración resultante es inmutable durante toda la sesión.
 
-Los campos futuros de escenario y contexto se validarán en el endpoint de
-tokens y se incorporarán sólo en el ticket correspondiente.
+El runtime configura al inicio de la sesión el prompt, la voz, los datos de
+prueba, la herramienta mockeada y el resultado de negocio de ese escenario.
+El endpoint de tokens deberá rechazar valores fuera de esta lista permitida.
+
+## Contrato de resultado para la UI
+
+Luego de ejecutar una herramienta mockeada, el agente publica por el tópico
+"voice-demo-result". Su payload contiene escenario, herramientas usadas y el
+resultado de negocio. La UI muestra únicamente ese resumen; no recibe prompts,
+secretos ni estado interno del agente.
 
 ## Límites intencionales
 
 - Sin persistencia, base de datos, PII ni integraciones externas reales.
 - Sin secretos en el código ni en archivos versionados.
 - Sin cambios de idioma, prompt, voz o herramientas durante una llamada.
-- Sin página web ni emisión de tokens todavía.
+- Los mocks viven sólo en memoria por sesión. Cada uno devuelve un resultado
+  estructurado con escenario, herramientas usadas y resultado para la UI.
+- La página web no contiene secretos; la emisión de tokens sigue pendiente.
