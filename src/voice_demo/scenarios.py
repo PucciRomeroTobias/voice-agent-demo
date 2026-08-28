@@ -36,7 +36,7 @@ SCENARIOS: dict[ScenarioId, ScenarioDefinition] = {
     "clinic": ScenarioDefinition(
         id="clinic",
         label="Clínica",
-        tts_voices={"es": "Diego", "en": "Ashley"},
+        tts_voices={"es": "ash", "en": "ash"},
         prompts={
             "es": (
                 "Atendés la recepción de una clínica ficticia. Tu objetivo es ayudar "
@@ -76,7 +76,7 @@ SCENARIOS: dict[ScenarioId, ScenarioDefinition] = {
     "saas_b2b": ScenarioDefinition(
         id="saas_b2b",
         label="SaaS B2B",
-        tts_voices={"es": "Ashley", "en": "Ashley"},
+        tts_voices={"es": "ash", "en": "ash"},
         prompts={
             "es": (
                 "Atendés reservas de demos para un SaaS B2B ficticio. Antes de usar "
@@ -116,7 +116,7 @@ SCENARIOS: dict[ScenarioId, ScenarioDefinition] = {
     "support": ScenarioDefinition(
         id="support",
         label="Soporte",
-        tts_voices={"es": "Olivia", "en": "Ashley"},
+        tts_voices={"es": "ash", "en": "ash"},
         prompts={
             "es": (
                 "Hacés diagnóstico inicial para el soporte de un producto ficticio. "

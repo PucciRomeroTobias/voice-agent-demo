@@ -3,7 +3,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from agent import end_call_after_goodbye, publish_scenario_result
+from agent import (
+    end_call_after_goodbye,
+    end_call_after_inactivity,
+    publish_scenario_result,
+)
 from voice_demo.scenarios import SCENARIOS, ScenarioSession
 
 
@@ -38,4 +42,21 @@ async def test_end_call_waits_for_the_goodbye_before_shutting_down() -> None:
         allow_interruptions=False,
     )
     speech.wait_for_playout.assert_awaited_once()
+    job.shutdown.assert_called_once_with("conversation ended by user")
+
+
+@pytest.mark.asyncio
+async def test_end_call_after_inactivity_closes_the_session() -> None:
+    speech = MagicMock()
+    speech.wait_for_playout = AsyncMock()
+    session = MagicMock()
+    session.say.return_value = speech
+    job = MagicMock()
+
+    await end_call_after_inactivity(session, job, "es")
+
+    session.say.assert_called_once_with(
+        "Como no detecté actividad, voy a cerrar esta demo. Gracias por probarla.",
+        allow_interruptions=False,
+    )
     job.shutdown.assert_called_once_with("conversation ended by user")

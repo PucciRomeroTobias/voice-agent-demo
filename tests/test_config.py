@@ -10,7 +10,7 @@ def test_defaults_to_spanish_for_local_console() -> None:
     config = resolve_session_config(None, {})
 
     assert config.language == "es"
-    assert config.tts_voice == "Diego"
+    assert config.tts_voice == "ash"
     assert config.scenario.id == "clinic"
 
 
@@ -42,15 +42,15 @@ def test_metadata_selects_an_allowed_scenario_with_its_own_voice() -> None:
     config = resolve_session_config('{"language":"en", "scenario":"support"}', {})
 
     assert config.scenario.id == "support"
-    assert config.tts_voice == "Ashley"
+    assert config.tts_voice == "ash"
     assert "affected area, impact" in config.system_prompt
     assert config.greeting.startswith("Hello. I am a virtual agent")
 
 
 def test_voice_is_selected_for_each_scenario_and_language() -> None:
-    assert resolve_session_config('{"language":"es", "scenario":"clinic"}', {}).tts_voice == "Diego"
-    assert resolve_session_config('{"language":"en", "scenario":"clinic"}', {}).tts_voice == "Ashley"
-    assert resolve_session_config('{"language":"es", "scenario":"support"}', {}).tts_voice == "Olivia"
+    assert resolve_session_config('{"language":"es", "scenario":"clinic"}', {}).tts_voice == "ash"
+    assert resolve_session_config('{"language":"en", "scenario":"clinic"}', {}).tts_voice == "ash"
+    assert resolve_session_config('{"language":"es", "scenario":"support"}', {}).tts_voice == "ash"
 
 
 @pytest.mark.parametrize(

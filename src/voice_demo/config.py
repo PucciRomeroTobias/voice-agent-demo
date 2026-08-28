@@ -30,7 +30,7 @@ class SessionConfig:
 _LANGUAGE_CONFIGS: Mapping[Language, SessionConfig] = {
     "es": SessionConfig(
         language="es",
-        tts_voice="Diego",
+        tts_voice="ash",
         greeting="",
         system_prompt=(
             "Sos un asistente de voz para una demostración técnica. Hablá únicamente "
@@ -46,7 +46,7 @@ _LANGUAGE_CONFIGS: Mapping[Language, SessionConfig] = {
     ),
     "en": SessionConfig(
         language="en",
-        tts_voice="Ashley",
+        tts_voice="ash",
         greeting="",
         system_prompt=(
             "You are a voice assistant for a technical demonstration. Speak only in "

@@ -14,9 +14,9 @@ emita tokens.
 - Una cuenta y un proyecto de [LiveKit Cloud](https://cloud.livekit.io/).
 - La [CLI de LiveKit](https://docs.livekit.io/reference/developer-tools/livekit-cli/).
 
-LiveKit Cloud inyecta las credenciales de su proyecto en el contenedor. Este
-agente usa LiveKit Inference para Deepgram STT, Gemma LLM e Inworld TTS: revisá
-las cuotas y costos de tu proyecto antes de probarlo o abrirlo a usuarios.
+LiveKit Cloud inyecta las credenciales de su proyecto en el contenedor. El
+runtime usa OpenAI directo para STT, LLM y TTS; `OPENAI_API_KEY` se carga como
+secreto del agente y nunca se expone al navegador.
 
 ## Ejecutarlo localmente
 
@@ -105,6 +105,10 @@ resumen estructurado en el tópico de datos `voice-demo-result`; no persiste
 audio, transcripciones, PII ni resultados.
 
 ## Operación y límites
+
+Cada sesión pública termina cuando la persona la finaliza, tras 30 segundos de
+inactividad o al llegar al máximo absoluto de dos minutos. El cierre reproduce
+una despedida antes de apagar el job.
 
 Para volver a una versión anterior, primero inspeccioná las versiones y luego
 indicá explícitamente la que querés restaurar:

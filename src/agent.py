@@ -9,23 +9,28 @@ from livekit.agents import (
     AgentServer,
     AgentSession,
     JobContext,
-    TurnHandlingOptions,
     cli,
     function_tool,
-    inference,
 )
+from livekit.plugins import openai
 
 from voice_demo.config import AGENT_NAME, SessionConfig, resolve_session_config
 from voice_demo.scenarios import ScenarioSession, tools_for
 
 load_dotenv(".env.local")
+MAX_SESSION_SECONDS = 2 * 60
+MAX_IDLE_SECONDS = 30
 
 
 class VoiceDemoAgent(Agent):
     def __init__(self, config: SessionConfig, end_call_tool: object) -> None:
         self.scenario_session = ScenarioSession(config.scenario)
         super().__init__(
-            llm=inference.LLM(model="google/gemma-4-31b-it"),
+            llm=openai.responses.LLM(
+                model="gpt-5.6-luna",
+                reasoning={"effort": "low"},
+                max_output_tokens=300,
+            ),
             instructions=config.system_prompt,
             tools=[*tools_for(self.scenario_session), end_call_tool],
         )
@@ -53,6 +58,33 @@ async def end_call_after_goodbye(
     speech = session.say(goodbye, allow_interruptions=False)
     await speech.wait_for_playout()
     ctx.shutdown("conversation ended by user")
+
+
+async def end_call_after_limit(session: AgentSession, ctx: JobContext, language: str) -> None:
+    """Advierte y termina una sesión pública que alcanzó su duración máxima."""
+
+    await asyncio.sleep(MAX_SESSION_SECONDS)
+    goodbye = (
+        "Llegamos al máximo de dos minutos de esta demo. Gracias por probarla."
+        if language == "es"
+        else "This demo has reached its two-minute limit. Thank you for trying it."
+    )
+    await end_call_after_goodbye(session, ctx, goodbye)
+
+
+async def end_call_after_inactivity(
+    session: AgentSession,
+    ctx: JobContext,
+    language: str,
+) -> None:
+    """Cierra una sesión pública cuando la persona deja de interactuar."""
+
+    goodbye = (
+        "Como no detecté actividad, voy a cerrar esta demo. Gracias por probarla."
+        if language == "es"
+        else "I did not detect activity, so I will close this demo. Thank you for trying it."
+    )
+    await end_call_after_goodbye(session, ctx, goodbye)
 
 
 def create_end_call_tool(
@@ -88,17 +120,27 @@ async def voice_demo(ctx: JobContext) -> None:
     }
 
     session = AgentSession(
-        stt=inference.STT(model="deepgram/nova-3", language=config.language),
-        tts=inference.TTS(
-            model="inworld/inworld-tts-2",
-            voice=config.tts_voice,
+        stt=openai.STT(
+            model="gpt-transcribe",
             language=config.language,
+            prompt=(
+                "La conversación puede incluir español rioplatense de Argentina, "
+                "nombres propios y términos de Voice AI, LiveKit y LLM."
+                if config.language == "es"
+                else "The conversation may include Voice AI, LiveKit, and LLM terminology."
+            ),
         ),
-        turn_handling=TurnHandlingOptions(
-            turn_detection=inference.TurnDetector(),
-            interruption={"mode": "adaptive"},
-            preemptive_generation={"enabled": True},
+        tts=openai.TTS(
+            model="gpt-4o-mini-tts",
+            voice=config.tts_voice,
+            instructions=(
+                "Hablá español rioplatense argentino natural, cálido y profesional. "
+                "Usá voseo cuando corresponda, una dicción clara y una cadencia conversacional."
+                if config.language == "es"
+                else "Speak natural, warm, professional English with clear conversational pacing."
+            ),
         ),
+        user_away_timeout=MAX_IDLE_SECONDS,
     )
     goodbye = (
         "Gracias por comunicarte. Hasta luego."
@@ -118,9 +160,17 @@ async def voice_demo(ctx: JobContext) -> None:
             )
         )
 
+    @session.on("user_state_changed")
+    def close_when_user_is_away(event: object) -> None:
+        """Termina la room cuando LiveKit confirma inactividad sostenida."""
+
+        if getattr(event, "new_state", None) == "away":
+            asyncio.create_task(end_call_after_inactivity(session, ctx, config.language))
+
     await session.start(agent=agent, room=ctx.room)
     await ctx.connect()
     session.say(config.greeting, allow_interruptions=False)
+    asyncio.create_task(end_call_after_limit(session, ctx, config.language))
 
 
 if __name__ == "__main__":
