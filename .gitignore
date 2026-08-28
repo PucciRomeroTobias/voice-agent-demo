@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+livekit.toml
 .venv/
 __pycache__/
 *.py[cod]

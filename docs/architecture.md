@@ -2,23 +2,23 @@
 
 ## Propósito
 
-El runtime ejecuta el agente de voz de la demo pública sobre LiveKit Cloud. Es
-un único agente compartido que, en los tickets siguientes, recibirá escenarios
-mockeados desde una configuración permitida.
+El runtime ejecuta un único agente de voz sobre LiveKit Cloud. Es una demo
+reutilizable: cada instalación pertenece a su propio proyecto LiveKit y se
+conecta mediante el dispatch explícito `voice-demo`.
 
 ## Flujo de sesión
 
 ```text
-Cliente web → endpoint de tokens → room y metadata del job → voice-demo
-                                                           ↓
-                                                STT → LLM → TTS
+Cliente o Agent Console → dispatch explícito → room + metadata del job
+                                            → voice-demo
+                                                ↓
+                                     STT → LLM → TTS
 ```
 
-El endpoint `web/app/api/livekit-token/route.ts` valida la configuración,
-genera una room e identidad opacas por sesión y emite un token de participante
-válido por diez minutos. El token incluye el dispatch explícito con
-`agent_name = voice-demo` y metadata JSON; el navegador recibe únicamente
-`server_url` y `participant_token`.
+La creación de rooms, participantes y tokens pertenece al cliente que consume
+el runtime; este repositorio no incluye ni requiere una web o endpoint propio.
+La metadata JSON del dispatch selecciona una configuración permitida antes de
+iniciar la sesión.
 
 ## Contrato de metadata
 
@@ -37,19 +37,19 @@ El primer mensaje es una presentación determinista del rol del agente y hace la
 primera pregunta útil. Antes de ejecutar una herramienta, el agente reúne los
 parámetros obligatorios del escenario: fecha y hora para Clínica, necesidad más
 fecha y hora para SaaS, y área, impacto y descripción para Soporte. Si falta un
-dato, lo pregunta y no invoca la herramienta. El endpoint de tokens deberá
-rechazar valores fuera de esta lista permitida.
+dato, lo pregunta y no invoca la herramienta. Un cliente que emita dispatches
+debe limitar esos valores a esta lista permitida.
 
 Además de la herramienta propia de cada escenario, cada sesión incorpora
 `end_call`. Cuando la persona pide terminar, esta herramienta reproduce una
 despedida no interrumpible y luego cierra el job de LiveKit.
 
-## Contrato de resultado para la UI
+## Contrato de resultado
 
 Luego de ejecutar una herramienta mockeada, el agente publica por el tópico
 "voice-demo-result". Su payload contiene escenario, herramientas usadas y el
-resultado de negocio. La UI muestra únicamente ese resumen; no recibe prompts,
-secretos ni estado interno del agente.
+resultado de negocio. Cualquier cliente puede consumir ese resumen, sin recibir
+prompts, secretos ni estado interno.
 
 ## Límites intencionales
 
@@ -60,16 +60,14 @@ secretos ni estado interno del agente.
   obligatorios reunidos durante la conversación, simula el éxito y no crea
   turnos, leads ni casos reales. Devuelve un resultado estructurado con
   escenario, herramientas usadas, datos simulados y resultado para la UI.
-- La página web no contiene secretos; el endpoint sólo los lee en el runtime
-  server-side mediante `LIVEKIT_URL`, `LIVEKIT_API_KEY` y `LIVEKIT_API_SECRET`.
+- No contiene una UI, endpoint de tokens ni secretos propios.
 
 ## Operación del runtime
 
-LiveKit Cloud ejecuta el contenedor del agente en `us-east`; `livekit.toml`
-asocia el repositorio con el agente administrado. El `Dockerfile` usa el lockfile
-de `uv`, ejecuta `src/agent.py start` y corre sin privilegios. `.dockerignore`
-excluye `.env.*`, la web standalone, tests y documentación del contexto de
-build.
+LiveKit Cloud ejecuta el contenedor en la región elegida al crearlo. El
+`Dockerfile` usa el lockfile de `uv`, ejecuta `src/agent.py start` y corre sin
+privilegios. Al ejecutar `lk agent create`, la CLI genera un `livekit.toml` con
+el ID y subdominio de la cuenta actual; se ignora para que nunca se comparta.
 
 Las credenciales del proyecto son inyectadas por LiveKit Cloud: el deploy nunca
 debe cargar `.env.local` como secretos. El health check operativo es `lk agent

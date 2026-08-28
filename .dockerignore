@@ -47,6 +47,7 @@ coverage/
 README.md
 CONTRIBUTING.md
 LICENSE
+livekit.toml
 
 # Coding agent files
 .claude/

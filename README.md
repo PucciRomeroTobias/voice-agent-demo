@@ -1,100 +1,130 @@
-# Voice Agent demo
+# Voice Agent demo para LiveKit
 
-Runtime Python de la demo pública de Voice Agent. Incluye el pipeline de voz
-bilingüe y tres escenarios mockeados por sesión: Clínica, SaaS B2B y Soporte.
-La página web usa un endpoint server-side para emitir tokens de sesión de LiveKit.
+Runtime Python, bilingüe y sin UI, para mostrar el ciclo de un agente de voz
+con LiveKit Cloud: STT → LLM → TTS. Incluye tres conversaciones mockeadas por
+sesión —Clínica, SaaS B2B y Soporte— y no crea recursos reales.
 
-## Requisitos
+Cada despliegue pertenece a la cuenta LiveKit de quien lo ejecuta. Este
+repositorio no incluye IDs de agentes, subdominios, credenciales ni una web que
+emita tokens.
 
-- Python 3.10 a 3.14.
-- [uv](https://docs.astral.sh/uv/) para instalar y ejecutar el proyecto.
-- Node.js 20 o superior para la página en `web/`.
-- Un proyecto de LiveKit Cloud con las credenciales de `.env.local`.
+## Qué necesitás
 
-## Preparación
+- Python 3.10 a 3.14 y [uv](https://docs.astral.sh/uv/).
+- Una cuenta y un proyecto de [LiveKit Cloud](https://cloud.livekit.io/).
+- La [CLI de LiveKit](https://docs.livekit.io/reference/developer-tools/livekit-cli/).
+
+LiveKit Cloud inyecta las credenciales de su proyecto en el contenedor. Este
+agente usa LiveKit Inference para Deepgram STT, Gemma LLM e Inworld TTS: revisá
+las cuotas y costos de tu proyecto antes de probarlo o abrirlo a usuarios.
+
+## Ejecutarlo localmente
+
+Cloná el repositorio y prepará el entorno:
 
 ```sh
 cp .env.example .env.local
 uv sync
-cd web && cp .env.example .env.local && npm install
 ```
 
-Completá `LIVEKIT_URL`, `LIVEKIT_API_KEY` y `LIVEKIT_API_SECRET` en los dos
-archivos `.env.local`: el de raíz para el agente Python y `web/.env.local` para
-el endpoint que emite tokens. Si más adelante se aloja la web en Vercel, cargá
-esas mismas variables sólo como variables de entorno del proyecto. Nunca se
-versionan ni se exponen al browser.
+En `.env.local`, cargá las tres credenciales de tu proyecto LiveKit Cloud:
 
-## Probar localmente
-
-Para levantar el worker y la web juntos, desde la raíz del repositorio:
-
-```sh
-./scripts/dev.sh
+```dotenv
+LIVEKIT_URL=wss://<tu-proyecto>.livekit.cloud
+LIVEKIT_API_KEY=<tu-api-key>
+LIVEKIT_API_SECRET=<tu-api-secret>
 ```
 
-Desde la carpeta contenedora `contratos-part-time` funciona el mismo comando:
-
-```sh
-./scripts/dev.sh
-```
-
-El comando comparte en memoria las credenciales de `.env.local` con ambos
-procesos y los detiene juntos con `Ctrl+C`. `web/.env.local` es un enlace local
-al mismo archivo, por lo que `cd web && npm run dev` también funciona sin
-duplicar secretos.
-
-El modo `console` usa español y Clínica por defecto. Para comprobar otro
-idioma o escenario, cambiá `VOICE_DEMO_LANGUAGE=en` o
-`VOICE_DEMO_SCENARIO=support` en `.env.local` antes de iniciar una nueva
-sesión. En dispatch, la metadata
-`{"language":"es","scenario":"support"}` prevalece sobre esos fallbacks.
+No subas ese archivo. Para conversar con el agente desde la terminal:
 
 ```sh
 uv run python src/agent.py console
 ```
 
-Para usar el agente local desde un cliente de LiveKit, ejecutalo en modo de
-desarrollo:
+El modo `console` inicia en español y Clínica. Para un cambio puntual, definí
+antes de arrancar `VOICE_DEMO_LANGUAGE=en` o `VOICE_DEMO_SCENARIO=support`.
+
+Para exponer el worker local a un cliente LiveKit, usá:
 
 ```sh
 uv run python src/agent.py dev
 ```
 
-El nombre de dispatch es fijo: `voice-demo`. Cada job recibe `language` y
-`scenario` al inicio; sólo se aceptan `clinic`, `saas_b2b` y `support`.
-El escenario fija el prompt, la voz y una única herramienta mockeada. Su
-resultado estructurado no persiste y queda disponible para que la futura UI
-muestre el resumen final.
+## Desplegarlo en tu cuenta de LiveKit Cloud
 
-## Verificación rápida
+Autenticá la CLI y elegí tu proyecto:
 
 ```sh
-uv run pytest
-cd web && npm run lint && npm run build
+lk cloud auth
+lk project list
+lk project set-default "<nombre-de-tu-proyecto>"
 ```
 
-## Operación en LiveKit Cloud
-
-El runtime se despliega como agente de LiveKit Cloud en `us-east`. La
-configuración versionada vive en `livekit.toml`; el build usa `Dockerfile` y
-`.dockerignore`. No incluir `.env.local` ni credenciales en la imagen: LiveKit
-inyecta `LIVEKIT_URL`, `LIVEKIT_API_KEY` y `LIVEKIT_API_SECRET` en el runtime.
-
-Antes de desplegar, verificar localmente con los comandos de la sección
-anterior. Luego, con la CLI de LiveKit autenticada:
+Desde la raíz de este repositorio, creá el agente una única vez. Elegí la región
+que prefieras; el ejemplo usa `us-east`:
 
 ```sh
+lk agent create --region us-east --secrets-file /dev/null
+```
+
+Ese comando registra y despliega tu instancia, y genera `livekit.toml` con el
+subdominio e ID de **tu** cuenta. El archivo se ignora a propósito: no lo
+commitees ni lo copies a otro proyecto. LiveKit Cloud provee automáticamente
+`LIVEKIT_URL`, `LIVEKIT_API_KEY` y `LIVEKIT_API_SECRET` al runtime, por lo que
+no deben cargarse como secretos de este agente.
+
+Para desplegar cambios posteriores:
+
+```sh
+lk agent deploy --secrets-file /dev/null
 lk agent status
 lk agent logs --log-type deploy
-lk agent deploy --secrets-file /dev/null
 ```
 
-`status` debe mostrar el agente `Running` y los logs deben confirmar el registro
-de `voice-demo`. Para volver a la versión previa, primero inspeccionar las
-versiones y luego ejecutar el rollback explícito:
+`status` debe informar una réplica `Running` y los logs deben mostrar el
+registro de `voice-demo`.
+
+## Probarlo desde Agent Console
+
+En el dashboard de LiveKit, abrí **Agent Console**, seleccioná tu agente y
+creá un dispatch explícito. El nombre de dispatch es fijo: `voice-demo`.
+
+La configuración se lee de la **metadata del job/dispatch**, no de la metadata
+del participante. Usá JSON válido como estos ejemplos:
+
+```json
+{"language":"es","scenario":"clinic"}
+{"language":"es","scenario":"saas_b2b"}
+{"language":"en","scenario":"support"}
+```
+
+Los idiomas permitidos son `es` y `en`; los escenarios son `clinic`,
+`saas_b2b` y `support`. Cada combinación fija el prompt, la voz y una sola
+herramienta mockeada durante esa sesión. Al completarla, el agente publica un
+resumen estructurado en el tópico de datos `voice-demo-result`; no persiste
+audio, transcripciones, PII ni resultados.
+
+## Operación y límites
+
+Para volver a una versión anterior, primero inspeccioná las versiones y luego
+indicá explícitamente la que querés restaurar:
 
 ```sh
 lk agent versions
 lk agent rollback --version <version-id>
 ```
+
+El dashboard de LiveKit muestra estado, errores, uso y límites del proyecto.
+Si construís una UI propia, emití tokens del lado servidor y aplicá tus propios
+límites de costo, autenticación y protección contra abuso; este repositorio no
+incluye esa capa.
+
+## Desarrollo
+
+```sh
+uv sync
+uv run pytest
+uv run ruff check src tests
+```
+
+La arquitectura del runtime está documentada en [docs/architecture.md](docs/architecture.md).
