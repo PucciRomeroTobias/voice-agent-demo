@@ -62,3 +62,18 @@ secretos ni estado interno del agente.
   escenario, herramientas usadas, datos simulados y resultado para la UI.
 - La página web no contiene secretos; el endpoint sólo los lee en el runtime
   server-side mediante `LIVEKIT_URL`, `LIVEKIT_API_KEY` y `LIVEKIT_API_SECRET`.
+
+## Operación del runtime
+
+LiveKit Cloud ejecuta el contenedor del agente en `us-east`; `livekit.toml`
+asocia el repositorio con el agente administrado. El `Dockerfile` usa el lockfile
+de `uv`, ejecuta `src/agent.py start` y corre sin privilegios. `.dockerignore`
+excluye `.env.*`, la web standalone, tests y documentación del contexto de
+build.
+
+Las credenciales del proyecto son inyectadas por LiveKit Cloud: el deploy nunca
+debe cargar `.env.local` como secretos. El health check operativo es `lk agent
+status`; los logs de arranque deben mostrar el registro del worker con
+`agent_name: voice-demo`. Ante un deploy defectuoso, `lk agent versions` permite
+identificar la versión previa y `lk agent rollback --version <version-id>` la
+restaura.

@@ -73,3 +73,28 @@ muestre el resumen final.
 uv run pytest
 cd web && npm run lint && npm run build
 ```
+
+## Operación en LiveKit Cloud
+
+El runtime se despliega como agente de LiveKit Cloud en `us-east`. La
+configuración versionada vive en `livekit.toml`; el build usa `Dockerfile` y
+`.dockerignore`. No incluir `.env.local` ni credenciales en la imagen: LiveKit
+inyecta `LIVEKIT_URL`, `LIVEKIT_API_KEY` y `LIVEKIT_API_SECRET` en el runtime.
+
+Antes de desplegar, verificar localmente con los comandos de la sección
+anterior. Luego, con la CLI de LiveKit autenticada:
+
+```sh
+lk agent status
+lk agent logs --log-type deploy
+lk agent deploy --secrets-file /dev/null
+```
+
+`status` debe mostrar el agente `Running` y los logs deben confirmar el registro
+de `voice-demo`. Para volver a la versión previa, primero inspeccionar las
+versiones y luego ejecutar el rollback explícito:
+
+```sh
+lk agent versions
+lk agent rollback --version <version-id>
+```
