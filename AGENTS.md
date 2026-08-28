@@ -27,3 +27,12 @@ hallazgos durables en `docs/research/`, comportamiento en `CHANGELOG.md` y
 onboarding en `README.md`. Al cerrar un ticket, registrar resultado y
 verificaciones en Linear. Nunca incluir cambios ajenos en commits o pushes;
 un deploy exige autorización explícita.
+
+## Investigación de dirección y diseño
+
+En iniciativas de marca, producto o diseño con impacto alto, antes de investigar
+o recomendar referencias, stack o una dirección, crear y mantener un brief vivo
+y hacer una entrevista con el usuario. Pedir y analizar sus referencias primero,
+hacer una sola pregunta por vez y ajustar la siguiente según la respuesta. Al
+entregar, explicar en el mensaje las conclusiones, decisiones, trade-offs y el
+próximo paso; un enlace al artefacto no reemplaza esa síntesis.

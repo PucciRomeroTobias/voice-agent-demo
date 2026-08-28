@@ -9,6 +9,12 @@ versionado seguirá [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Las voces se seleccionan por escenario e idioma; las sesiones en English usan
+  una voz inglesa y los prompts piden una cadencia breve que cede el turno al
+  detectar que la persona empieza a hablar.
+- La UI presenta estados de conexión, escucha, razonamiento y habla con
+  etiquetas legibles, y distingue cada intervención del agente y de la persona
+  en la transcripción.
 - Cada escenario reúne los datos necesarios antes de invocar su mock: fecha y
   hora para Clínica, necesidad más fecha y hora para SaaS, y área, impacto y
   descripción para Soporte. Ningún mock crea recursos reales.

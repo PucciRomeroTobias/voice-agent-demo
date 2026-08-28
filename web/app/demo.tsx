@@ -20,6 +20,18 @@ type DemoResult = {
   outcome: { type: string; summary: string; details?: Record<string, string> } | null;
 };
 
+const agentStatuses = {
+  disconnected: { label: "Desconectado", tone: "idle" },
+  connecting: { label: "Conectando con el agente", tone: "waiting" },
+  "pre-connect-buffering": { label: "Preparando el micrófono", tone: "waiting" },
+  initializing: { label: "Preparando la conversación", tone: "waiting" },
+  idle: { label: "Listo para continuar", tone: "idle" },
+  listening: { label: "Te está escuchando", tone: "listening" },
+  thinking: { label: "Pensando una respuesta", tone: "thinking" },
+  speaking: { label: "El agente está hablando", tone: "speaking" },
+  failed: { label: "No se pudo conectar al agente", tone: "error" },
+} as const;
+
 const scenarios: Record<
   ScenarioId,
   { label: string; description: string; tool: string }
@@ -62,14 +74,15 @@ function CallPanel({
 }) {
   const agent = useAgent();
   const { messages } = useSessionMessages();
+  const status = agentStatuses[agent.state];
 
   return (
     <section className="call-panel" aria-live="polite">
       <RoomAudioRenderer />
       <StartAudio label="Activar audio" />
-      <div className="status-row">
-        <span className="status-dot" />
-        <span>{agent.state === "listening" ? "Escuchando" : agent.state}</span>
+      <div className="status-row" data-tone={status.tone}>
+        <span className="status-dot" aria-hidden="true" />
+        <span>{status.label}</span>
         <button className="secondary" onClick={() => void onEnd()} type="button">
           Terminar llamada
         </button>
@@ -79,9 +92,13 @@ function CallPanel({
           <p>Conectando la conversación…</p>
         ) : (
           messages.map((message) => (
-            <p key={message.id} className={message.type === "agentTranscript" ? "agent" : ""}>
-              {message.message}
-            </p>
+            <article
+              key={message.id}
+              className={message.type === "agentTranscript" ? "agent" : "user"}
+            >
+              <span>{message.type === "agentTranscript" ? "Agente" : "Vos"}</span>
+              <p>{message.message}</p>
+            </article>
           ))
         )}
       </div>

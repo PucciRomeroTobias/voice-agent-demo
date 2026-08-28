@@ -19,19 +19,24 @@ class ScenarioDefinition:
 
     id: ScenarioId
     label: str
-    tts_voice: str
+    tts_voices: dict[str, str]
     prompts: dict[str, str]
     greetings: dict[str, str]
     test_data: dict[str, str]
     tool_name: str
     outcome: dict[str, str]
 
+    def voice_for(self, language: str) -> str:
+        """Devuelve la voz evaluada para el idioma de la sesión."""
+
+        return self.tts_voices[language]
+
 
 SCENARIOS: dict[ScenarioId, ScenarioDefinition] = {
     "clinic": ScenarioDefinition(
         id="clinic",
         label="Clínica",
-        tts_voice="Diego",
+        tts_voices={"es": "Diego", "en": "Ashley"},
         prompts={
             "es": (
                 "Atendés la recepción de una clínica ficticia. Tu objetivo es ayudar "
@@ -71,7 +76,7 @@ SCENARIOS: dict[ScenarioId, ScenarioDefinition] = {
     "saas_b2b": ScenarioDefinition(
         id="saas_b2b",
         label="SaaS B2B",
-        tts_voice="Ashley",
+        tts_voices={"es": "Ashley", "en": "Ashley"},
         prompts={
             "es": (
                 "Atendés reservas de demos para un SaaS B2B ficticio. Antes de usar "
@@ -111,7 +116,7 @@ SCENARIOS: dict[ScenarioId, ScenarioDefinition] = {
     "support": ScenarioDefinition(
         id="support",
         label="Soporte",
-        tts_voice="Olivia",
+        tts_voices={"es": "Olivia", "en": "Ashley"},
         prompts={
             "es": (
                 "Hacés diagnóstico inicial para el soporte de un producto ficticio. "
