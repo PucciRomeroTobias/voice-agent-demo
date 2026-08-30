@@ -11,15 +11,61 @@ from livekit.agents import (
     JobContext,
     cli,
     function_tool,
+    inference,
+    metrics,
 )
 from livekit.plugins import openai
 
-from voice_demo.config import AGENT_NAME, SessionConfig, resolve_session_config
+from voice_demo.config import (
+    AGENT_NAME,
+    TTS_INSTRUCTIONS,
+    Language,
+    SessionConfig,
+    resolve_session_config,
+)
+from voice_demo.observability import persist_session_observability
 from voice_demo.scenarios import ScenarioSession, tools_for
 
 load_dotenv(".env.local")
 MAX_SESSION_SECONDS = 2 * 60
-MAX_IDLE_SECONDS = 30
+USER_AWAY_TIMEOUT_SECONDS = 7
+STT_MODEL = "deepgram/nova-3"
+STT_LANGUAGE = "multi"
+INACTIVITY_MESSAGES: dict[Language, tuple[str, str, str]] = {
+    "es": (
+        "¿Seguís ahí? Cuando quieras, podemos continuar.",
+        "¿Querés que sigamos con esto?",
+        "Como no recibí respuesta, voy a finalizar la llamada. Gracias por comunicarte.",
+    ),
+    "en": (
+        "Are you still there? We can continue whenever you're ready.",
+        "Would you like to keep going?",
+        "Since I haven't heard back, I'll end the call now. Thank you for contacting us.",
+    ),
+}
+TURN_HANDLING = {
+    "endpointing": {
+        "mode": "dynamic",
+        "min_delay": 0.2,
+        "max_delay": 1.5,
+        "alpha": 0.7,
+    },
+    "interruption": {
+        "enabled": True,
+        "mode": "adaptive",
+        "min_duration": 0.5,
+    },
+    "preemptive_generation": {
+        "enabled": True,
+        "preemptive_tts": True,
+    },
+}
+
+
+def create_stt() -> inference.STT:
+    """Crea el STT bilingüe streaming provisto por LiveKit Inference."""
+
+    return inference.STT(model=STT_MODEL, language=STT_LANGUAGE)
 
 
 class VoiceDemoAgent(Agent):
@@ -28,7 +74,7 @@ class VoiceDemoAgent(Agent):
         super().__init__(
             llm=openai.responses.LLM(
                 model="gpt-5.6-luna",
-                reasoning={"effort": "low"},
+                reasoning={"effort": "none"},
                 max_output_tokens=300,
             ),
             instructions=config.system_prompt,
@@ -52,12 +98,13 @@ async def end_call_after_goodbye(
     session: AgentSession,
     ctx: JobContext,
     goodbye: str,
+    reason: str = "conversation ended by user",
 ) -> None:
     """Reproduce la despedida completa antes de cerrar el job de LiveKit."""
 
-    speech = session.say(goodbye, allow_interruptions=False)
+    speech = session.say(goodbye, allow_interruptions=True)
     await speech.wait_for_playout()
-    ctx.shutdown("conversation ended by user")
+    ctx.shutdown(reason)
 
 
 async def end_call_after_limit(session: AgentSession, ctx: JobContext, language: str) -> None:
@@ -65,32 +112,53 @@ async def end_call_after_limit(session: AgentSession, ctx: JobContext, language:
 
     await asyncio.sleep(MAX_SESSION_SECONDS)
     goodbye = (
-        "Llegamos al máximo de dos minutos de esta demo. Gracias por probarla."
+        "Llegamos al tiempo máximo de esta llamada. Gracias por comunicarte."
         if language == "es"
-        else "This demo has reached its two-minute limit. Thank you for trying it."
+        else "We've reached the time limit for this call. Thank you for contacting us."
     )
-    await end_call_after_goodbye(session, ctx, goodbye)
+    await end_call_after_goodbye(
+        session,
+        ctx,
+        goodbye,
+        reason="conversation reached maximum duration",
+    )
 
 
-async def end_call_after_inactivity(
+async def handle_consecutive_inactivity(
     session: AgentSession,
     ctx: JobContext,
-    language: str,
+    language: Language,
 ) -> None:
-    """Cierra una sesión pública cuando la persona deja de interactuar."""
+    """Hace dos seguimientos y cierra en el tercer turno sin respuesta."""
 
-    goodbye = (
-        "Como no detecté actividad, voy a cerrar esta demo. Gracias por probarla."
-        if language == "es"
-        else "I did not detect activity, so I will close this demo. Thank you for trying it."
+    first_nudge, second_nudge, goodbye = INACTIVITY_MESSAGES[language]
+    for message in (first_nudge, second_nudge):
+        speech = session.say(message, allow_interruptions=True)
+        await speech.wait_for_playout()
+        await asyncio.sleep(USER_AWAY_TIMEOUT_SECONDS)
+
+    await end_call_after_goodbye(
+        session,
+        ctx,
+        goodbye,
+        reason="conversation ended after inactivity",
     )
-    await end_call_after_goodbye(session, ctx, goodbye)
+
+
+def language_from_code(value: object) -> Language | None:
+    """Reduce un código BCP-47 detectado por STT a un idioma soportado."""
+
+    if not isinstance(value, str):
+        return None
+    primary = value.lower().split("-", maxsplit=1)[0]
+    if primary == "es" or primary == "en":
+        return primary
+    return None
 
 
 def create_end_call_tool(
     session: AgentSession,
     ctx: JobContext,
-    goodbye: str,
 ) -> object:
     """Crea la única acción que puede finalizar la llamada a pedido del usuario."""
 
@@ -98,19 +166,28 @@ def create_end_call_tool(
         name="end_call",
         description=(
             "Finaliza la llamada cuando la persona dice que quiere terminar, despedirse "
-            "o que no necesita más ayuda. Reproduce una despedida y corta la sesión."
+            "o que no necesita más ayuda. `language` debe ser el idioma de la última "
+            "intervención de la persona: `es` o `en`. Reproduce una despedida y corta la sesión."
         ),
     )
-    async def end_call() -> dict[str, bool]:
+    async def end_call(language: Language) -> dict[str, bool]:
+        goodbye = (
+            "Gracias por comunicarte. Hasta luego."
+            if language == "es"
+            else "Thank you for calling. Goodbye."
+        )
         asyncio.create_task(end_call_after_goodbye(session, ctx, goodbye))
         return {"call_ended": True}
 
     return end_call
 
 
-@server.rtc_session(agent_name=AGENT_NAME)
+@server.rtc_session(
+    agent_name=AGENT_NAME,
+    on_session_end=persist_session_observability,
+)
 async def voice_demo(ctx: JobContext) -> None:
-    """Inicia una sesión con el idioma ya fijado por su metadata."""
+    """Inicia una sesión cuyo saludo usa el idioma elegido en metadata."""
 
     config = resolve_session_config(ctx.job.metadata)
     ctx.log_context_fields = {
@@ -120,34 +197,19 @@ async def voice_demo(ctx: JobContext) -> None:
     }
 
     session = AgentSession(
-        stt=openai.STT(
-            model="gpt-transcribe",
-            language=config.language,
-            prompt=(
-                "La conversación puede incluir español rioplatense de Argentina, "
-                "nombres propios y términos de Voice AI, LiveKit y LLM."
-                if config.language == "es"
-                else "The conversation may include Voice AI, LiveKit, and LLM terminology."
-            ),
-        ),
+        stt=create_stt(),
         tts=openai.TTS(
             model="gpt-4o-mini-tts",
             voice=config.tts_voice,
-            instructions=(
-                "Hablá español rioplatense argentino natural, cálido y profesional. "
-                "Usá voseo cuando corresponda, una dicción clara y una cadencia conversacional."
-                if config.language == "es"
-                else "Speak natural, warm, professional English with clear conversational pacing."
-            ),
+            speed=config.tts_speed,
+            instructions=TTS_INSTRUCTIONS,
         ),
-        user_away_timeout=MAX_IDLE_SECONDS,
+        turn_handling=TURN_HANDLING,
+        user_away_timeout=USER_AWAY_TIMEOUT_SECONDS,
     )
-    goodbye = (
-        "Gracias por comunicarte. Hasta luego."
-        if config.language == "es"
-        else "Thank you for calling. Goodbye."
-    )
-    agent = VoiceDemoAgent(config, create_end_call_tool(session, ctx, goodbye))
+    agent = VoiceDemoAgent(config, create_end_call_tool(session, ctx))
+    active_language: Language = config.language
+    idle_task: asyncio.Task[None] | None = None
 
     @session.on("function_tools_executed")
     def schedule_scenario_result(_: object) -> None:
@@ -160,12 +222,39 @@ async def voice_demo(ctx: JobContext) -> None:
             )
         )
 
+    @session.on("metrics_collected")
+    def log_pipeline_metrics(event: object) -> None:
+        """Registra latencias técnicas por etapa, sin audio ni transcripciones."""
+
+        metric = getattr(event, "metrics", None)
+        if metric is not None:
+            metrics.log_metrics(metric)
+
     @session.on("user_state_changed")
-    def close_when_user_is_away(event: object) -> None:
-        """Termina la room cuando LiveKit confirma inactividad sostenida."""
+    def follow_up_when_user_is_away(event: object) -> None:
+        """Inicia o cancela el seguimiento de silencios consecutivos."""
+
+        nonlocal idle_task
 
         if getattr(event, "new_state", None) == "away":
-            asyncio.create_task(end_call_after_inactivity(session, ctx, config.language))
+            if idle_task is None or idle_task.done():
+                idle_task = asyncio.create_task(
+                    handle_consecutive_inactivity(session, ctx, active_language)
+                )
+        elif idle_task is not None:
+            idle_task.cancel()
+            idle_task = None
+
+    @session.on("user_input_transcribed")
+    def remember_latest_language(event: object) -> None:
+        """Mantiene los avisos de inactividad en el idioma detectado más reciente."""
+
+        nonlocal active_language
+        if not getattr(event, "is_final", False):
+            return
+        detected = language_from_code(getattr(event, "language", None))
+        if detected is not None:
+            active_language = detected
 
     await session.start(agent=agent, room=ctx.room)
     await ctx.connect()

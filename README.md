@@ -15,8 +15,9 @@ emita tokens.
 - La [CLI de LiveKit](https://docs.livekit.io/reference/developer-tools/livekit-cli/).
 
 LiveKit Cloud inyecta las credenciales de su proyecto en el contenedor. El
-runtime usa OpenAI directo para STT, LLM y TTS; `OPENAI_API_KEY` se carga como
-secreto del agente y nunca se expone al navegador.
+runtime usa Deepgram Nova-3 multilingual mediante LiveKit Inference para STT y
+OpenAI directo para LLM y TTS; `OPENAI_API_KEY` se carga como secreto del agente
+y nunca se expone al navegador.
 
 ## Ejecutarlo localmente
 
@@ -41,8 +42,10 @@ No subas ese archivo. Para conversar con el agente desde la terminal:
 uv run python src/agent.py console
 ```
 
-El modo `console` inicia en español y Clínica. Para un cambio puntual, definí
-antes de arrancar `VOICE_DEMO_LANGUAGE=en` o `VOICE_DEMO_SCENARIO=support`.
+El modo `console` inicia con saludo en español y escenario Clínica. Para un
+cambio puntual, definí antes de arrancar `VOICE_DEMO_LANGUAGE=en` o
+`VOICE_DEMO_SCENARIO=support`. El idioma inicial no bloquea la conversación: el
+agente responde en español o inglés según la última intervención de la persona.
 
 Para exponer el worker local a un cliente LiveKit, usá:
 
@@ -99,16 +102,35 @@ del participante. Usá JSON válido como estos ejemplos:
 ```
 
 Los idiomas permitidos son `es` y `en`; los escenarios son `clinic`,
-`saas_b2b` y `support`. Cada combinación fija el prompt, la voz y una sola
-herramienta mockeada durante esa sesión. Al completarla, el agente publica un
-resumen estructurado en el tópico de datos `voice-demo-result`; no persiste
-audio, transcripciones, PII ni resultados.
+`saas_b2b` y `support`. `language` elige el saludo inicial, pero el STT escucha
+ambos idiomas y el agente acompaña el idioma de la persona en cada turno. Cada
+combinación fija el prompt, la voz y una sola herramienta mockeada durante esa
+sesión. Al completarla, el agente publica un resumen estructurado en el tópico
+de datos `voice-demo-result`.
+
+Cuando `VOICE_OBSERVABILITY_URL` y `VOICE_OBSERVABILITY_TOKEN` están
+configurados, `on_session_end` envía al Worker privado el transcript completo,
+tool calls, eventos y métricas por turno, indexados por el `room_id` `RM_…`.
+Nunca sube audio ni su ruta local. El Worker autentica la escritura y lectura y
+elimina el artefacto a los 30 días. Esta persistencia se usa exclusivamente para
+diagnóstico; los resultados de Clínica, SaaS y Soporte siguen siendo mockeados y
+no crean recursos reales.
 
 ## Operación y límites
 
-Cada sesión pública termina cuando la persona la finaliza, tras 30 segundos de
-inactividad o al llegar al máximo absoluto de dos minutos. El cierre reproduce
-una despedida antes de apagar el job.
+Cada sesión pública termina cuando la persona la finaliza, al llegar al máximo
+absoluto de dos minutos o después de tres turnos consecutivos sin respuesta. Tras
+7 segundos de silencio mutuo, el agente hace un primer seguimiento; repite el
+seguimiento 7 segundos después y cierra con una despedida en el tercer turno,
+aproximadamente a los 21 segundos. Si la persona vuelve a hablar, la secuencia se
+cancela y el conteo vuelve a empezar.
+
+Al iniciar cada sesión, el prompt recibe la fecha y hora local de
+`America/Argentina/Buenos_Aires` y un calendario precalculado de la semana actual
+y la siguiente. El agente interpreta contra ese mapa frases como “mañana” o “el
+miércoles de la semana que viene”, considerando semanas de lunes a domingo, y
+normaliza las fechas a `YYYY-MM-DD` antes de usar una herramienta. Sólo pide
+aclaración cuando falta la hora o la expresión es realmente ambigua.
 
 Para volver a una versión anterior, primero inspeccioná las versiones y luego
 indicá explícitamente la que querés restaurar:

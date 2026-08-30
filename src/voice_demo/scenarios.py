@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import date as calendar_date
 from typing import Any, Literal
 
 from livekit.agents import function_tool
@@ -36,35 +38,46 @@ SCENARIOS: dict[ScenarioId, ScenarioDefinition] = {
     "clinic": ScenarioDefinition(
         id="clinic",
         label="Clínica",
-        tts_voices={"es": "ash", "en": "ash"},
+        tts_voices={"es": "alloy", "en": "alloy"},
         prompts={
             "es": (
-                "Atendés la recepción de una clínica ficticia. Tu objetivo es ayudar "
-                "a simular una reserva. Primero saludá y entendé el pedido. Antes de "
-                "usar reserve_appointment, debés conocer con claridad una fecha y una "
-                "hora elegidas por la persona. Si falta cualquiera de esos datos, "
-                "preguntalo explícitamente; nunca inventes ni propongas un horario fijo. "
-                "La herramienta sólo simula el éxito: no hay agenda ni reserva real. "
-                "No brindes consejos médicos ni solicites datos personales."
+                "# Escenario: Clínica\n"
+                "Objetivo: ayudar a reservar un turno. Guiá con calma y sin "
+                "hacer diagnóstico ni dar consejos médicos.\n"
+                "Para reservarlo necesitás una fecha y una hora que la persona haya elegido. "
+                "No inventes, supongas ni ofrezcas horarios concretos; si falta un dato, preguntá sólo por ese dato. "
+                "Si pregunta qué fechas hay disponibles, decí que hay amplia disponibilidad esta semana y la "
+                "próxima, y preguntá qué día y horario prefiere.\n"
+                "Si menciona síntomas, urgencias o una emergencia, explicá que este canal no puede dar "
+                "atención médica y recomendá comunicarse con un "
+                "servicio de emergencias o un profesional local. Volvé a la reserva sólo si corresponde.\n"
+                "Después del saludo, si pide ayuda general o algo distinto de un turno, explicá recién "
+                "entonces que por este canal sólo podés ayudar a reservar un turno y preguntá si quiere avanzar. "
+                "Si quiere reservar, continuá sin explicar limitaciones internas. Podés conservar como "
+                "nota opcional una preferencia no personal, por ejemplo especialidad o tipo de profesional; no la "
+                "pidas y nunca envíes datos personales a la herramienta."
             ),
             "en": (
-                "You handle reception for a fictional clinic. Help simulate an "
-                "appointment booking. Before using reserve_appointment, you must know "
-                "a date and time chosen by the person. If either is missing, ask for "
-                "it explicitly; never invent or offer a fixed slot. The tool only "
-                "simulates success: no calendar or real booking exists. Do not provide "
-                "medical advice or collect personal data."
+                "# Scenario: Clinic\n"
+                "Goal: help book an appointment. Guide the person calmly without "
+                "diagnosing or giving medical advice.\n"
+                "The booking needs a date and time chosen by the person. Never invent, assume, "
+                "or offer specific times; if one detail is missing, ask only for that detail. If asked what "
+                "dates are available, say there is broad availability this week and next, then ask which day "
+                "and time they prefer.\n"
+                "If the person mentions symptoms, urgency, or an emergency, explain that this channel "
+                "cannot provide medical care and recommend local "
+                "emergency services or a qualified professional. Return to booking only when appropriate.\n"
+                "After the greeting, only if they ask for general help or something other than an appointment, "
+                "then explain that this channel can only help book an appointment and ask whether they want to proceed. "
+                "If they want an appointment, continue without explaining internal limitations. You may retain an "
+                "optional non-personal preference, such as specialty or type of clinician; never ask for it or send "
+                "personal data to the tool."
             ),
         },
         greetings={
-            "es": (
-                "Hola, buenas. Soy un agente virtual para ayudar a reservar turnos "
-                "en esta clínica. ¿Para qué fecha y hora te gustaría reservar?"
-            ),
-            "en": (
-                "Hello. I am a virtual agent here to help book appointments at this "
-                "clinic. What date and time would you like to reserve?"
-            ),
+            "es": "Hola, gracias por comunicarte con la clínica virtual. ¿En qué puedo ayudarte hoy?",
+            "en": "Hello, thanks for calling the virtual clinic. How can I help today?",
         },
         test_data={"appointment_date": "2026-09-10", "appointment_time": "14:30"},
         tool_name="reserve_appointment",
@@ -76,35 +89,42 @@ SCENARIOS: dict[ScenarioId, ScenarioDefinition] = {
     "saas_b2b": ScenarioDefinition(
         id="saas_b2b",
         label="SaaS B2B",
-        tts_voices={"es": "ash", "en": "ash"},
+        tts_voices={"es": "echo", "en": "echo"},
         prompts={
             "es": (
-                "Atendés reservas de demos para un SaaS B2B ficticio. Antes de usar "
-                "create_qualified_lead, debés conocer la necesidad principal, la fecha "
-                "y la hora de la demo. Si falta alguno, preguntalo explícitamente; no "
-                "inventes datos ni propongas un horario fijo. La herramienta sólo "
-                "simula el éxito: no crea un lead ni agenda una demo real. No recopiles "
-                "datos de contacto ni empresa."
+                "# Escenario: SaaS B2B\n"
+                "Objetivo: entender qué proceso o necesidad quiere mejorar la persona y reservar una "
+                "demo. Mostrá curiosidad genuina, pero no hagas una entrevista comercial ni ventas agresivas.\n"
+                "Para reservarla necesitás la necesidad principal y una fecha y hora elegidas por la persona. "
+                "No inventes datos ni propongas horarios concretos. Si pregunta qué fechas hay disponibles, "
+                "decí que hay amplia disponibilidad esta semana y la próxima, y preguntá qué día y horario "
+                "prefiere. Si falta algo, preguntá sólo por el dato faltante.\n"
+                "No pidas nombre, empresa, cargo, correo, teléfono ni presupuesto; si solicitan información "
+                "comercial específica que no está disponible, decí que no contás con ese dato y volvé a la reserva.\n"
+                "Después del saludo, si el pedido es vago o está fuera de este objetivo, explicá recién entonces "
+                "que por este canal podés entender su necesidad y reservar una demo, y preguntá si quiere avanzar. "
+                "Si expresa una necesidad, avanzá con el siguiente dato faltante. Podés conservar "
+                "una nota opcional no personal sobre el contexto o proceso; no la pidas ni envíes datos personales a la herramienta."
             ),
             "en": (
-                "You arrange demo reservations for a fictional B2B SaaS. Before using "
-                "create_qualified_lead, you must know the person's main need and the "
-                "demo date and time. Ask explicitly for any missing field; do not "
-                "invent data or offer a fixed slot. The tool only simulates success: "
-                "it does not create a lead or schedule a real demo. Do not collect "
-                "contact or company data."
+                "# Scenario: B2B SaaS\n"
+                "Goal: understand the process or need the person wants to improve and book a "
+                "demo. Be genuinely curious, without conducting a sales interrogation or pushing a sale.\n"
+                "The booking needs the main need plus a date and time chosen by the person. Never "
+                "invent data or offer specific times. If asked what dates are available, say there is broad "
+                "availability this week and next, then ask which day and time they prefer. If something is "
+                "missing, ask only for that detail.\n"
+                "Do not request a name, company, job title, email, phone number, or budget. If asked for "
+                "specific commercial information that is unavailable, say you do not have that detail and return to booking.\n"
+                "After the greeting, only if the request is vague or outside this objective, then explain that "
+                "this channel can understand their need and book a demo, and ask whether they want to continue. "
+                "If they state a need, request the next missing detail. You may retain an "
+                "optional non-personal note about their context or process; never ask for it or send personal data to the tool."
             ),
         },
         greetings={
-            "es": (
-                "Hola, buenas. Soy un agente virtual para ayudar a reservar una demo "
-                "de nuestro SaaS. ¿Cuál es tu necesidad principal y qué fecha y hora "
-                "te resultan cómodas?"
-            ),
-            "en": (
-                "Hello. I am a virtual agent here to help reserve a demo of our SaaS. "
-                "What is your main need, and what date and time work for you?"
-            ),
+            "es": "Hola, gracias por comunicarte con el equipo de soluciones. ¿En qué podemos ayudarte hoy?",
+            "en": "Hello, thanks for contacting the solutions team. How can we help today?",
         },
         test_data={"primary_need": "operaciones", "demo_date": "2026-09-11", "demo_time": "10:00"},
         tool_name="create_qualified_lead",
@@ -116,33 +136,39 @@ SCENARIOS: dict[ScenarioId, ScenarioDefinition] = {
     "support": ScenarioDefinition(
         id="support",
         label="Soporte",
-        tts_voices={"es": "ash", "en": "ash"},
+        tts_voices={"es": "nova", "en": "nova"},
         prompts={
             "es": (
-                "Hacés diagnóstico inicial para el soporte de un producto ficticio. "
-                "Antes de usar escalate_support_case, debés conocer el área afectada, "
-                "el impacto y una breve descripción del problema. Si falta algún dato, "
-                "preguntalo explícitamente; nunca lo inventes. La herramienta sólo "
-                "simula el éxito: no crea un caso real. No solicites datos personales "
-                "ni acceso a sistemas."
+                "# Escenario: Soporte\n"
+                "Objetivo: hacer un diagnóstico inicial empático y escalar un problema. "
+                "Primero reconocé la frustración o el impacto sin culpar a la persona ni prometer una resolución.\n"
+                "Para escalarlo necesitás el área afectada, el impacto y una descripción breve. "
+                "No inventes ninguno; si falta un dato, preguntá sólo por ese dato y podés ofrecer ejemplos simples de áreas o impacto.\n"
+                "No pidas contraseñas, capturas, tokens, datos de cuenta ni que ejecute comandos. "
+                "Si aparece un incidente de seguridad, pedí no compartir secretos y recomendá usar el canal seguro correspondiente.\n"
+                "Después del saludo, si el pedido es vago o no es un problema de soporte, explicá recién entonces "
+                "que por este canal podés hacer un diagnóstico inicial y escalar el problema, y preguntá si quiere avanzar. "
+                "Si describe un problema, pedí el siguiente dato faltante. Podés conservar una "
+                "nota opcional no personal sobre el contexto del problema; no la pidas ni envíes datos personales a la herramienta."
             ),
             "en": (
-                "You provide initial support for a fictional product. Before using "
-                "escalate_support_case, you must know the affected area, impact, and "
-                "a brief issue description. Ask explicitly for any missing data; never "
-                "invent it. The tool only simulates success: it does not create a real "
-                "case. Do not request personal data or system access."
+                "# Scenario: Support\n"
+                "Goal: provide empathetic initial triage and escalate an issue. First "
+                "acknowledge the frustration or impact without blaming the person or promising a resolution.\n"
+                "The escalation needs the affected area, impact, and a short issue description. Never invent "
+                "them; if one is missing, ask only for it and you may offer simple examples of areas or impact.\n"
+                "Do not request passwords, screenshots, tokens, account "
+                "data, or commands to run. If a security incident arises, ask the person not to share secrets and "
+                "recommend the appropriate secure channel.\n"
+                "After the greeting, only if the request is vague or not a support issue, then explain that this channel "
+                "can perform initial triage and escalate the issue, and ask whether they want to proceed. If they describe "
+                "an issue, request the next missing detail. You may retain an optional non-personal note "
+                "about the issue context; never ask for it or send personal data to the tool."
             ),
         },
         greetings={
-            "es": (
-                "Hola, buenas. Soy un agente virtual para ayudar con soporte. Contame "
-                "brevemente qué problema tenés y en qué área ocurre."
-            ),
-            "en": (
-                "Hello. I am a virtual agent here to help with support. Briefly tell "
-                "me what problem you have and which area it affects."
-            ),
+            "es": "Hola, gracias por comunicarte con soporte. ¿En qué puedo ayudarte hoy?",
+            "en": "Hello, thanks for contacting support. How can I help today?",
         },
         test_data={"issue_area": "facturación", "severity": "alto", "issue_summary": "Cobro duplicado"},
         tool_name="escalate_support_case",
@@ -166,7 +192,7 @@ class ScenarioSession:
         if self.definition.tool_name not in self.used_tools:
             self.used_tools.append(self.definition.tool_name)
         self.details = details
-        return self.result()
+        return {"status": "confirmed", "details": details}
 
     def result(self) -> dict[str, Any]:
         """Resultado seguro para que la UI lo muestre al finalizar la llamada."""
@@ -182,6 +208,27 @@ class ScenarioSession:
         }
 
 
+def _with_extra_notes(details: dict[str, str], extra_notes: str | None) -> dict[str, str]:
+    """Agrega una preferencia opcional sólo cuando la persona la compartió."""
+
+    if extra_notes:
+        return {**details, "extra_notes": extra_notes}
+    return details
+
+
+def _require_concrete_schedule(date: str, time: str) -> None:
+    """Impide que la tool acepte expresiones relativas sin resolver."""
+
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", date) is None:
+        raise ValueError("date must be a concrete YYYY-MM-DD value")
+    try:
+        calendar_date.fromisoformat(date)
+    except ValueError as error:
+        raise ValueError("date must be a valid calendar date") from error
+    if re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", time) is None:
+        raise ValueError("time must be a concrete 24-hour HH:MM value")
+
+
 def tools_for(session: ScenarioSession) -> list[Callable[..., Any]]:
     """Crea sólo la herramienta autorizada por el escenario de esta sesión."""
 
@@ -190,20 +237,25 @@ def tools_for(session: ScenarioSession) -> list[Callable[..., Any]]:
         @function_tool(
             name="reserve_appointment",
             description=(
-                "Simula una reserva con una fecha y una hora indicadas por la persona. "
-                "Ambos parámetros son obligatorios. No crea una reserva real."
+                "Confirma una reserva con una fecha y una hora indicadas por la persona. "
+                "La fecha debe ser YYYY-MM-DD y la hora HH:MM en formato de 24 horas; resolvé antes "
+                "cualquier expresión relativa. Ambos parámetros son obligatorios. `extra_notes` sólo admite "
+                "preferencias no personales, por ejemplo especialidad o tipo de profesional."
             ),
         )
         async def reserve_appointment(
             appointment_date: str,
             appointment_time: str,
+            extra_notes: str | None = None,
         ) -> dict[str, Any]:
-            return session.record_tool_use(
+            _require_concrete_schedule(appointment_date, appointment_time)
+            return session.record_tool_use(_with_extra_notes(
                 {
                     "appointment_date": appointment_date,
                     "appointment_time": appointment_time,
-                }
-            )
+                },
+                extra_notes,
+            ))
 
         return [reserve_appointment]
 
@@ -212,43 +264,51 @@ def tools_for(session: ScenarioSession) -> list[Callable[..., Any]]:
         @function_tool(
             name="create_qualified_lead",
             description=(
-                "Simula la reserva de una demo. Requiere necesidad principal, fecha y "
-                "hora elegidas por la persona. No crea un lead ni agenda una demo real."
+                "Confirma la reserva de una demo. Requiere necesidad principal, fecha y "
+                "hora elegidas por la persona. La fecha debe ser YYYY-MM-DD y la hora HH:MM en formato "
+                "de 24 horas; resolvé antes cualquier expresión relativa. `extra_notes` sólo admite contexto "
+                "no personal sobre el proceso."
             ),
         )
         async def create_qualified_lead(
             primary_need: str,
             demo_date: str,
             demo_time: str,
+            extra_notes: str | None = None,
         ) -> dict[str, Any]:
-            return session.record_tool_use(
+            _require_concrete_schedule(demo_date, demo_time)
+            return session.record_tool_use(_with_extra_notes(
                 {
                     "primary_need": primary_need,
                     "demo_date": demo_date,
                     "demo_time": demo_time,
-                }
-            )
+                },
+                extra_notes,
+            ))
 
         return [create_qualified_lead]
 
     @function_tool(
         name="escalate_support_case",
         description=(
-            "Simula el escalamiento de un problema. Requiere área afectada, impacto y "
-            "una descripción breve. No crea un caso real."
+            "Confirma el escalamiento de un problema. Requiere área afectada, impacto y "
+            "una descripción breve. `extra_notes` es opcional y sólo admite contexto no personal "
+            "del problema."
         ),
     )
     async def escalate_support_case(
         issue_area: str,
         severity: str,
         issue_summary: str,
+        extra_notes: str | None = None,
     ) -> dict[str, Any]:
-        return session.record_tool_use(
+        return session.record_tool_use(_with_extra_notes(
             {
                 "issue_area": issue_area,
                 "severity": severity,
                 "issue_summary": issue_summary,
-            }
-        )
+            },
+            extra_notes,
+        ))
 
     return [escalate_support_case]

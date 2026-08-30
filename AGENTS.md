@@ -5,7 +5,10 @@ transcripciones, PII, tokens ni secretos. El alcance canónico vive en Linear:
 no inventar requisitos fuera del ticket activo.
 
 - `src/agent.py` es el único entrypoint y `AGENT_NAME = "voice-demo"` no cambia.
-- El idioma se decide al inicio y permanece estable durante la sesión.
+- La metadata decide el idioma inicial del saludo. Después, el STT admite
+  español e inglés y el agente responde en el idioma de la última intervención.
+- El reloj de negocio usa `America/Argentina/Buenos_Aires`; cambios en fechas
+  relativas o silencios requieren pruebas deterministas con tiempo inyectado.
 - Configuración, prompts y voces se mantienen fuera del entrypoint; usar
   funciones simples y sin abstracciones preventivas.
 - `.env.local` es local; `.env.example` sólo contiene nombres de variables.

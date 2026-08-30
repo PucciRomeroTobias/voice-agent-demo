@@ -1,13 +1,22 @@
+import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from agent import (
+    INACTIVITY_MESSAGES,
+    TURN_HANDLING,
+    USER_AWAY_TIMEOUT_SECONDS,
+    VoiceDemoAgent,
+    create_end_call_tool,
+    create_stt,
     end_call_after_goodbye,
-    end_call_after_inactivity,
+    handle_consecutive_inactivity,
+    language_from_code,
     publish_scenario_result,
 )
+from voice_demo.config import resolve_session_config
 from voice_demo.scenarios import SCENARIOS, ScenarioSession
 
 
@@ -39,24 +48,101 @@ async def test_end_call_waits_for_the_goodbye_before_shutting_down() -> None:
 
     session.say.assert_called_once_with(
         "Gracias por comunicarte. Hasta luego.",
-        allow_interruptions=False,
+        allow_interruptions=True,
     )
     speech.wait_for_playout.assert_awaited_once()
     job.shutdown.assert_called_once_with("conversation ended by user")
 
 
 @pytest.mark.asyncio
-async def test_end_call_after_inactivity_closes_the_session() -> None:
+async def test_consecutive_inactivity_nudges_twice_and_closes_on_third_turn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     speech = MagicMock()
     speech.wait_for_playout = AsyncMock()
     session = MagicMock()
     session.say.return_value = speech
     job = MagicMock()
+    sleep = AsyncMock()
+    monkeypatch.setattr("agent.asyncio.sleep", sleep)
 
-    await end_call_after_inactivity(session, job, "es")
+    await handle_consecutive_inactivity(session, job, "es")
 
-    session.say.assert_called_once_with(
-        "Como no detecté actividad, voy a cerrar esta demo. Gracias por probarla.",
-        allow_interruptions=False,
+    assert [call.args[0] for call in session.say.call_args_list] == list(
+        INACTIVITY_MESSAGES["es"]
     )
-    job.shutdown.assert_called_once_with("conversation ended by user")
+    assert all(call.kwargs == {"allow_interruptions": True} for call in session.say.call_args_list)
+    assert speech.wait_for_playout.await_count == 3
+    assert sleep.await_count == 2
+    sleep.assert_awaited_with(USER_AWAY_TIMEOUT_SECONDS)
+    job.shutdown.assert_called_once_with("conversation ended after inactivity")
+
+
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [("es", "es"), ("es-AR", "es"), ("EN-us", "en"), ("pt-BR", None), (None, None)],
+)
+def test_language_from_code_accepts_supported_bcp47_codes(
+    code: object, expected: str | None
+) -> None:
+    assert language_from_code(code) == expected
+
+
+def test_voice_llm_disables_reasoning_explicitly() -> None:
+    agent = VoiceDemoAgent(resolve_session_config(None, {}), MagicMock())
+
+    assert agent.llm._opts.reasoning == {"effort": "none"}  # type: ignore[attr-defined]
+
+
+def test_turn_handling_is_tuned_for_low_latency_and_supported_interruption() -> None:
+    assert TURN_HANDLING["endpointing"] == {
+        "mode": "dynamic",
+        "min_delay": 0.2,
+        "max_delay": 1.5,
+        "alpha": 0.7,
+    }
+    assert TURN_HANDLING["interruption"]["mode"] == "adaptive"
+    assert TURN_HANDLING["preemptive_generation"] == {
+        "enabled": True,
+        "preemptive_tts": True,
+    }
+
+
+def test_stt_streams_multilingual_audio_with_word_alignment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LIVEKIT_API_KEY", "test-key")
+    monkeypatch.setenv("LIVEKIT_API_SECRET", "test-secret")
+
+    stt = create_stt()
+
+    assert stt._opts.model == "deepgram/nova-3"  # type: ignore[attr-defined]
+    assert stt._opts.language == "multi"  # type: ignore[attr-defined]
+    assert stt.capabilities.streaming is True
+    assert stt.capabilities.interim_results is True
+    assert stt.capabilities.aligned_transcript == "word"
+
+
+@pytest.mark.parametrize(
+    ("language", "expected_goodbye"),
+    [
+        ("es", "Gracias por comunicarte. Hasta luego."),
+        ("en", "Thank you for calling. Goodbye."),
+    ],
+)
+@pytest.mark.asyncio
+async def test_end_call_uses_the_language_of_the_latest_user_turn(
+    monkeypatch: pytest.MonkeyPatch,
+    language: str,
+    expected_goodbye: str,
+) -> None:
+    goodbye = AsyncMock()
+    monkeypatch.setattr("agent.end_call_after_goodbye", goodbye)
+    session = MagicMock()
+    job = MagicMock()
+    tool = create_end_call_tool(session, job)
+
+    await tool(language=language)
+    await asyncio.sleep(0)
+
+    goodbye.assert_awaited_once_with(session, job, expected_goodbye)
