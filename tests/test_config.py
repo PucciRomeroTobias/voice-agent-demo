@@ -297,3 +297,15 @@ def test_mock_state_does_not_cross_sessions() -> None:
 
     assert first_session.result()["tools_used"] == ["create_qualified_lead"]
     assert second_session.result()["tools_used"] == []
+
+
+def test_completed_scenarios_require_confirmation_and_a_goodbye_before_closing() -> None:
+    for language in ("es", "en"):
+        config = resolve_session_config(f'{{"language":"{language}"}}', {})
+
+        assert "end_call" in config.system_prompt
+        assert (
+            "el runtime confirma claramente el resultado, se despide y cierra la sesión"
+            if language == "es"
+            else "the runtime clearly confirms the outcome, says goodbye, and closes the session"
+        ) in config.system_prompt

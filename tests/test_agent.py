@@ -9,6 +9,7 @@ from agent import (
     TURN_HANDLING,
     USER_AWAY_TIMEOUT_SECONDS,
     VoiceDemoAgent,
+    complete_scenario_after_confirmation,
     create_end_call_tool,
     create_stt,
     end_call_after_goodbye,
@@ -33,6 +34,44 @@ async def test_publish_scenario_result_sends_the_session_summary() -> None:
     participant.publish_data.assert_awaited_once_with(
         json.dumps(scenario_session.result()),
         topic="voice-demo-result",
+    )
+
+
+@pytest.mark.asyncio
+async def test_completed_scenario_confirms_before_publishing_and_saying_goodbye(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    confirmation = MagicMock()
+    confirmation.wait_for_playout = AsyncMock()
+    goodbye = AsyncMock()
+    monkeypatch.setattr("agent.end_call_after_goodbye", goodbye)
+    participant = AsyncMock()
+    scenario_session = ScenarioSession(SCENARIOS["clinic"])
+    scenario_session.record_tool_use(
+        {"appointment_date": "2026-09-10", "appointment_time": "14:30"}
+    )
+    session = MagicMock()
+    session.say.return_value = confirmation
+    job = MagicMock()
+
+    await complete_scenario_after_confirmation(
+        session, job, participant, scenario_session, "en"
+    )
+
+    session.say.assert_called_once_with(
+        "All set, your request has been confirmed.",
+        allow_interruptions=False,
+    )
+    confirmation.wait_for_playout.assert_awaited_once()
+    participant.publish_data.assert_awaited_once_with(
+        json.dumps(scenario_session.result()),
+        topic="voice-demo-result",
+    )
+    goodbye.assert_awaited_once_with(
+        session,
+        job,
+        "Thank you for calling. Goodbye.",
+        reason="scenario completed",
     )
 
 

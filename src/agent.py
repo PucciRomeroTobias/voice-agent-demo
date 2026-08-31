@@ -94,6 +94,36 @@ async def publish_scenario_result(participant: object, scenario_session: Scenari
     )
 
 
+async def complete_scenario_after_confirmation(
+    session: AgentSession,
+    ctx: JobContext,
+    participant: object,
+    scenario_session: ScenarioSession,
+    language: Language,
+) -> None:
+    """Confirma la gestión, entrega el resumen a la UI y se despide en ese orden."""
+
+    confirmation = (
+        "Listo, la gestión quedó confirmada."
+        if language == "es"
+        else "All set, your request has been confirmed."
+    )
+    goodbye = (
+        "Gracias por comunicarte. Hasta luego."
+        if language == "es"
+        else "Thank you for calling. Goodbye."
+    )
+    speech = session.say(confirmation, allow_interruptions=False)
+    await speech.wait_for_playout()
+    await publish_scenario_result(participant, scenario_session)
+    await end_call_after_goodbye(
+        session,
+        ctx,
+        goodbye,
+        reason="scenario completed",
+    )
+
+
 async def end_call_after_goodbye(
     session: AgentSession,
     ctx: JobContext,
@@ -210,15 +240,25 @@ async def voice_demo(ctx: JobContext) -> None:
     agent = VoiceDemoAgent(config, create_end_call_tool(session, ctx))
     active_language: Language = config.language
     idle_task: asyncio.Task[None] | None = None
+    completion_task: asyncio.Task[None] | None = None
 
     @session.on("function_tools_executed")
     def schedule_scenario_result(_: object) -> None:
-        """Comparte sólo el resumen seguro que consumirá la UI al finalizar."""
+        """Cierra una gestión completada después de confirmarla en voz."""
 
-        asyncio.create_task(
-            publish_scenario_result(
+        nonlocal completion_task
+        if not agent.scenario_session.used_tools:
+            return
+        if completion_task is not None and not completion_task.done():
+            return
+
+        completion_task = asyncio.create_task(
+            complete_scenario_after_confirmation(
+                session,
+                ctx,
                 ctx.room.local_participant,
                 agent.scenario_session,
+                active_language,
             )
         )
 

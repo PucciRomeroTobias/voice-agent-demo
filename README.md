@@ -105,8 +105,9 @@ Los idiomas permitidos son `es` y `en`; los escenarios son `clinic`,
 `saas_b2b` y `support`. `language` elige el saludo inicial, pero el STT escucha
 ambos idiomas y el agente acompaña el idioma de la persona en cada turno. Cada
 combinación fija el prompt, la voz y una sola herramienta mockeada durante esa
-sesión. Al completarla, el agente publica un resumen estructurado en el tópico
-de datos `voice-demo-result`.
+sesión. Al completarla, el runtime confirma la gestión, publica un resumen
+estructurado en el tópico de datos `voice-demo-result` y se despide antes de
+cerrar la sesión.
 
 Cuando `VOICE_OBSERVABILITY_URL` y `VOICE_OBSERVABILITY_TOKEN` están
 configurados, `on_session_end` envía al Worker privado el transcript completo,

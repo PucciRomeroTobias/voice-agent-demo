@@ -15,6 +15,9 @@ versionado seguirá [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Tras completar cualquiera de los tres escenarios, el agente confirma el
+  resultado en voz y usa el cierre de llamada para despedirse antes de terminar
+  la sesión.
 - `gpt-5.6-luna` usa explícitamente reasoning `none`. El endpointing pasa a modo
   dinámico entre 0,2 y 1,5 segundos y habilita TTS preemptivo para reducir la
   latencia percibida.

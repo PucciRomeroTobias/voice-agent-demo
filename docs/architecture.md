@@ -47,8 +47,7 @@ reúne los parámetros obligatorios: fecha y hora para Clínica, necesidad más 
 y hora para SaaS, y área, impacto y descripción para Soporte. Si falta un dato,
 pregunta sólo por ese dato y no invoca la herramienta. Cada mock también puede
 recibir `extra_notes` opcionales y no personales —una preferencia o contexto que
-la persona ya compartió— para que el agente confirme el resultado de manera
-natural; nunca se piden ni publican PII. Los suplementos prohíben consejo médico
+la persona ya compartió—; nunca se piden ni publican PII. Los suplementos prohíben consejo médico
 y tratan urgencias como fuera de alcance en Clínica; evitan la captura de datos
 comerciales en SaaS; y prohíben secretos y acceso a sistemas en Soporte. Un
 cliente que emita dispatches debe limitar esos valores a esta lista permitida.
@@ -103,10 +102,12 @@ los mensajes usan el último idioma español o inglés informado por el STT.
 
 ## Contrato de resultado
 
-Luego de ejecutar una herramienta mockeada, el agente publica por el tópico
-"voice-demo-result". Su payload contiene escenario, herramientas usadas y el
-resultado de negocio. Cualquier cliente puede consumir ese resumen, sin recibir
-prompts, secretos ni estado interno.
+Luego de ejecutar una herramienta mockeada, el runtime confirma oralmente la
+gestión en el idioma de la última intervención, publica por el tópico
+"voice-demo-result", reproduce la despedida y recién entonces cierra la
+sesión. Su payload contiene escenario, herramientas usadas y el resultado de
+negocio. Cualquier cliente puede consumir ese resumen, sin recibir prompts,
+secretos ni estado interno.
 
 ## Observabilidad privada
 
