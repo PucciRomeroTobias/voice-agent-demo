@@ -26,10 +26,11 @@ versionado seguirá [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   cierra en el tercer turno, cerca de los 21 segundos; si la persona responde,
   la secuencia se cancela y reinicia. Los avisos siguen el último idioma detectado.
 - Cada sesión inyecta fecha, hora, zona `America/Argentina/Buenos_Aires` y un
-  calendario ya calculado de la semana actual y la siguiente al final del prompt.
-  El agente resuelve fechas relativas contra ese mapa y normaliza los argumentos
-  de herramientas a `YYYY-MM-DD`. Clínica y SaaS comunican amplia disponibilidad
-  esta semana y la próxima cuando la persona pregunta por fechas.
+  mapa ya calculado con la próxima ocurrencia futura de cada día. El agente
+  resuelve fechas relativas contra ese mapa y normaliza los argumentos de
+  herramientas a `YYYY-MM-DD`. Esto evita que “Wednesday next week” salte del
+  2 al 9 de septiembre al cruzar de domingo a lunes. Clínica y SaaS comunican
+  amplia disponibilidad esta semana y la próxima cuando la persona pregunta.
 - Los tres agentes completan el flujo sin decir “simulación” o “ficticio”. El
   resultado de la tool que consume el LLM confirma la gestión, mientras el resumen
   técnico publicado a la UI sigue aclarando que no hubo persistencia real.

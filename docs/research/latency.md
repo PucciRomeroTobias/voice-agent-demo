@@ -33,9 +33,9 @@ las próximas pruebas, sin conservar audio ni transcripciones.
   resultados intermedios y alineación por palabra. Esto permite solapar la
   transcripción con el habla y usar interrupción adaptativa.
 
-El reloj temporal y los calendarios de la semana actual y siguiente no participan
-en cada request: se calculan una sola vez al resolver la configuración de la
-sesión y quedan en las instrucciones inmutables.
+El reloj temporal y el mapa de próximas ocurrencias por día no participan en
+cada request: se calculan una sola vez al resolver la configuración de la sesión
+y quedan en las instrucciones inmutables.
 
 Fuentes:
 

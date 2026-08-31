@@ -54,12 +54,12 @@ comerciales en SaaS; y prohíben secretos y acceso a sistemas en Soporte. Un
 cliente que emita dispatches debe limitar esos valores a esta lista permitida.
 
 El último bloque del prompt se construye al abrir la sesión con la fecha, hora,
-zona IANA `America/Argentina/Buenos_Aires` y un mapa explícito de los siete días
-de la semana actual y la siguiente. Las semanas se interpretan de lunes a
-domingo. El agente resuelve expresiones relativas no ambiguas —por ejemplo,
-“mañana” o “el miércoles de la semana que viene”— contra esas fechas ya
-calculadas y normaliza a `YYYY-MM-DD` los argumentos de fecha de las
-herramientas. El reloj y ambos calendarios se calculan una sola vez al construir
+zona IANA `America/Argentina/Buenos_Aires` y un mapa explícito con la próxima
+ocurrencia futura de cada día de la semana. El agente resuelve expresiones
+relativas no ambiguas —por ejemplo, “mañana” o “el miércoles de la semana que
+viene”— contra esas fechas ya calculadas; una fecha absoluta o una semana
+identificada explícitamente prevalecen. Los argumentos de fecha se normalizan a
+`YYYY-MM-DD`. El reloj y el mapa se calculan una sola vez al construir
 `SessionConfig`, quedan embebidos en las instrucciones inmutables y no se
 recalculan por turno. Esto preserva el prompt durante la sesión y es suficiente
 porque la duración absoluta está limitada a dos minutos. Clínica y SaaS informan

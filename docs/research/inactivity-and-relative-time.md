@@ -26,14 +26,14 @@ sin repetir reglas, y conservar contexto de dominio y restricciones relevantes
 para GPT-5.6. El bloque temporal es dinámico y se agrega después de la base
 estable del prompt.
 
-Las semanas se definen de lunes a domingo. Para evitar delegar aritmética de
-calendario al modelo, el runtime calcula y enumera en el mismo bloque los siete
-días de la semana actual y los siete de la próxima. Así, por ejemplo, el domingo
-2026-08-30 queda explícito que el miércoles de la semana siguiente es
-2026-09-02. Las tools de agenda validan además fecha ISO y hora `HH:MM`, de modo
-que una expresión relativa sin resolver no puede quedar registrada como
-argumento. El reloj y los calendarios se fijan al abrir la llamada porque la
-sesión dura como máximo dos minutos.
+Para evitar delegar aritmética de calendario al modelo, el runtime calcula y
+enumera la próxima ocurrencia futura de cada día. Así, tanto el domingo
+2026-08-30 como el lunes 2026-08-31 queda explícito que el próximo miércoles es
+2026-09-02, incluso si “next week” y “Wednesday” llegan en turnos separados. Una
+fecha absoluta o una semana identificada explícitamente prevalecen. Las tools de
+agenda validan además fecha ISO y hora `HH:MM`, de modo que una expresión
+relativa sin resolver no puede quedar registrada como argumento. El reloj y el
+mapa se fijan al abrir la llamada porque la sesión dura como máximo dos minutos.
 
 Fuente:
 

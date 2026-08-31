@@ -1,5 +1,5 @@
 from dataclasses import FrozenInstanceError
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -109,6 +109,19 @@ def test_prompt_injects_local_clock_and_relative_date_rules(language: str) -> No
     assert "miércoles=2026-09-02" in config.system_prompt or (
         "Wednesday=2026-09-02" in config.system_prompt
     )
+
+
+@pytest.mark.parametrize("language", ["es", "en"])
+def test_next_weekday_uses_the_next_occurrence_after_a_week_boundary(language: str) -> None:
+    now = datetime(2026, 8, 31, 9, 46, tzinfo=ZoneInfo("America/Argentina/Buenos_Aires"))
+
+    config = resolve_session_config(f'{{"language":"{language}"}}', {}, now=now)
+
+    assert "miércoles=2026-09-02" in config.system_prompt or (
+        "Wednesday=2026-09-02" in config.system_prompt
+    )
+    assert "miércoles=2026-09-09" not in config.system_prompt
+    assert "Wednesday=2026-09-09" not in config.system_prompt
 
 
 @pytest.mark.parametrize("scenario", ["clinic", "saas_b2b"])
@@ -240,6 +253,23 @@ async def test_scheduling_tools_require_normalized_date_and_time(
         await clinic(appointment_date=date, appointment_time=time)
     with pytest.raises(ValueError):
         await saas(primary_need="operaciones", demo_date=date, demo_time=time)
+
+
+@pytest.mark.asyncio
+async def test_scheduling_tools_resolve_a_named_weekday_from_the_session_clock() -> None:
+    local_date = date(2026, 8, 31)
+    clinic = tools_for(ScenarioSession(SCENARIOS["clinic"], local_date=local_date))[0]
+    saas = tools_for(ScenarioSession(SCENARIOS["saas_b2b"], local_date=local_date))[0]
+
+    clinic_result = await clinic(
+        appointment_weekday="wednesday", appointment_time="18:00"
+    )
+    saas_result = await saas(
+        primary_need="operaciones", demo_weekday="wednesday", demo_time="18:00"
+    )
+
+    assert clinic_result["details"]["appointment_date"] == "2026-09-02"
+    assert saas_result["details"]["demo_date"] == "2026-09-02"
 
 
 @pytest.mark.asyncio

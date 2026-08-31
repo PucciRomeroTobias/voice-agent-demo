@@ -6,11 +6,18 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date as calendar_date
+from datetime import timedelta
 from typing import Any, Literal
 
 from livekit.agents import function_tool
 
 ScenarioId = Literal["clinic", "saas_b2b", "support"]
+Weekday = Literal[
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
+]
+WEEKDAYS: tuple[Weekday, ...] = (
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
+)
 
 DEFAULT_SCENARIO: ScenarioId = "clinic"
 
@@ -185,6 +192,7 @@ class ScenarioSession:
     """Estado en memoria de un escenario, creado nuevamente para cada llamada."""
 
     definition: ScenarioDefinition
+    local_date: calendar_date | None = None
     used_tools: list[str] = field(default_factory=list)
     details: dict[str, str] | None = None
 
@@ -229,6 +237,24 @@ def _require_concrete_schedule(date: str, time: str) -> None:
         raise ValueError("time must be a concrete 24-hour HH:MM value")
 
 
+def _resolve_schedule_date(
+    absolute_date: str | None,
+    weekday: Weekday | None,
+    local_date: calendar_date | None,
+) -> str:
+    """Resuelve un día relativo en código y preserva fechas absolutas explícitas."""
+
+    if (absolute_date is None) == (weekday is None):
+        raise ValueError("provide exactly one of absolute date or weekday")
+    if weekday is None:
+        assert absolute_date is not None
+        return absolute_date
+    if local_date is None:
+        raise ValueError("session local date is required to resolve a weekday")
+    days_ahead = (WEEKDAYS.index(weekday) - local_date.weekday()) % 7 or 7
+    return (local_date + timedelta(days=days_ahead)).isoformat()
+
+
 def tools_for(session: ScenarioSession) -> list[Callable[..., Any]]:
     """Crea sólo la herramienta autorizada por el escenario de esta sesión."""
 
@@ -238,16 +264,22 @@ def tools_for(session: ScenarioSession) -> list[Callable[..., Any]]:
             name="reserve_appointment",
             description=(
                 "Confirma una reserva con una fecha y una hora indicadas por la persona. "
-                "La fecha debe ser YYYY-MM-DD y la hora HH:MM en formato de 24 horas; resolvé antes "
-                "cualquier expresión relativa. Ambos parámetros son obligatorios. `extra_notes` sólo admite "
+                "La hora debe ser HH:MM en formato de 24 horas. Si la persona dijo una fecha absoluta, "
+                "enviá `appointment_date` como YYYY-MM-DD. Si nombró un día de semana, incluso después de "
+                "decir 'next week', DEBÉS enviar sólo `appointment_weekday` en minúsculas y dejar "
+                "`appointment_date` vacío; la herramienta resuelve la fecha. `extra_notes` sólo admite "
                 "preferencias no personales, por ejemplo especialidad o tipo de profesional."
             ),
         )
         async def reserve_appointment(
-            appointment_date: str,
             appointment_time: str,
+            appointment_date: str | None = None,
+            appointment_weekday: Weekday | None = None,
             extra_notes: str | None = None,
         ) -> dict[str, Any]:
+            appointment_date = _resolve_schedule_date(
+                appointment_date, appointment_weekday, session.local_date
+            )
             _require_concrete_schedule(appointment_date, appointment_time)
             return session.record_tool_use(_with_extra_notes(
                 {
@@ -265,17 +297,21 @@ def tools_for(session: ScenarioSession) -> list[Callable[..., Any]]:
             name="create_qualified_lead",
             description=(
                 "Confirma la reserva de una demo. Requiere necesidad principal, fecha y "
-                "hora elegidas por la persona. La fecha debe ser YYYY-MM-DD y la hora HH:MM en formato "
-                "de 24 horas; resolvé antes cualquier expresión relativa. `extra_notes` sólo admite contexto "
+                "hora elegidas por la persona. La hora debe ser HH:MM. Si dio una fecha absoluta, enviá "
+                "`demo_date` como YYYY-MM-DD. Si nombró un día de semana, incluso después de 'next week', "
+                "DEBÉS enviar sólo `demo_weekday` en minúsculas y dejar `demo_date` vacío; la herramienta "
+                "resuelve la fecha. `extra_notes` sólo admite contexto "
                 "no personal sobre el proceso."
             ),
         )
         async def create_qualified_lead(
             primary_need: str,
-            demo_date: str,
             demo_time: str,
+            demo_date: str | None = None,
+            demo_weekday: Weekday | None = None,
             extra_notes: str | None = None,
         ) -> dict[str, Any]:
+            demo_date = _resolve_schedule_date(demo_date, demo_weekday, session.local_date)
             _require_concrete_schedule(demo_date, demo_time)
             return session.record_tool_use(_with_extra_notes(
                 {

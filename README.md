@@ -126,11 +126,12 @@ aproximadamente a los 21 segundos. Si la persona vuelve a hablar, la secuencia s
 cancela y el conteo vuelve a empezar.
 
 Al iniciar cada sesión, el prompt recibe la fecha y hora local de
-`America/Argentina/Buenos_Aires` y un calendario precalculado de la semana actual
-y la siguiente. El agente interpreta contra ese mapa frases como “mañana” o “el
-miércoles de la semana que viene”, considerando semanas de lunes a domingo, y
-normaliza las fechas a `YYYY-MM-DD` antes de usar una herramienta. Sólo pide
-aclaración cuando falta la hora o la expresión es realmente ambigua.
+`America/Argentina/Buenos_Aires` y un mapa precalculado con la próxima ocurrencia
+futura de cada día. El agente interpreta contra ese mapa frases como “mañana” o
+“el miércoles de la semana que viene” y normaliza las fechas a `YYYY-MM-DD`
+antes de usar una herramienta. Una fecha absoluta o una semana identificada de
+forma explícita prevalecen; sólo pide aclaración cuando falta la hora o la
+expresión es realmente ambigua.
 
 Para volver a una versión anterior, primero inspeccioná las versiones y luego
 indicá explícitamente la que querés restaurar:

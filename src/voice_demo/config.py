@@ -6,8 +6,7 @@ import json
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date as calendar_date
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -36,6 +35,7 @@ class SessionConfig:
     tts_voice: str
     tts_speed: float
     scenario: ScenarioDefinition
+    local_date: date | None = None
 
 
 _LANGUAGE_CONFIGS: Mapping[Language, SessionConfig] = {
@@ -164,44 +164,49 @@ def resolve_session_config(
     if scenario_from_metadata is not None:
         scenario = scenario_from_metadata
     base = _LANGUAGE_CONFIGS[language]
+    current = _local_datetime(now)
     return SessionConfig(
         language=language,
         system_prompt=(
             f"{base.system_prompt}\n\n{scenario.prompts[language]}\n\n"
-            f"{_temporal_context(language, now)}"
+            f"{_temporal_context(language, current)}"
         ),
         greeting=scenario.greetings[language],
         tts_voice=scenario.voice_for(language),
         tts_speed=base.tts_speed,
         scenario=scenario,
+        local_date=current.date(),
     )
+
+
+def _local_datetime(now: datetime | None) -> datetime:
+    current = now or datetime.now(BUSINESS_TIME_ZONE)
+    if current.tzinfo is None:
+        return current.replace(tzinfo=BUSINESS_TIME_ZONE)
+    return current.astimezone(BUSINESS_TIME_ZONE)
 
 
 def _temporal_context(language: Language, now: datetime | None) -> str:
     """Inyecta un reloj local determinista para interpretar fechas relativas."""
 
-    current = now or datetime.now(BUSINESS_TIME_ZONE)
-    if current.tzinfo is None:
-        current = current.replace(tzinfo=BUSINESS_TIME_ZONE)
-    else:
-        current = current.astimezone(BUSINESS_TIME_ZONE)
+    current = _local_datetime(now)
     date = current.date().isoformat()
     time = current.strftime("%H:%M")
     weekday = current.strftime("%A")
-    current_week = _calendar_week(current.date())
-    next_week = _calendar_week(current.date() + timedelta(days=7))
+    upcoming_weekdays = _format_upcoming_weekdays(current.date(), language)
 
     if language == "es":
         return (
             "# Contexto temporal\n"
             f"- Fecha local actual: {date} ({weekday}). Hora local actual: {time}. "
             f"Zona horaria: {BUSINESS_TIME_ZONE_NAME}.\n"
-            "- Interpretá todas las fechas y horas relativas contra este reloj. La semana va de lunes "
-            "a domingo; 'la semana que viene' es la semana calendario siguiente.\n"
-            f"- Semana actual: {_format_calendar_week(current_week, language)}.\n"
-            f"- Semana que viene: {_format_calendar_week(next_week, language)}.\n"
-            "- Si una expresión como 'mañana' o 'el miércoles de la semana que viene' determina una fecha "
-            "sin ambigüedad, resolvela y enviá la fecha concreta en formato YYYY-MM-DD a la herramienta; "
+            "- Interpretá todas las fechas y horas relativas contra este reloj. Si la persona dice un "
+            "día de la semana —también después de decir 'la semana que viene'— usá su próxima ocurrencia "
+            "futura, salvo que dé una fecha absoluta o identifique explícitamente otra semana.\n"
+            f"- Próxima ocurrencia por día: {upcoming_weekdays}.\n"
+            "- Si la persona da una fecha absoluta, enviala a la herramienta en formato YYYY-MM-DD. "
+            "Si nombra un día como 'miércoles', incluso en otro turno después de 'la semana que viene', "
+            "enviá el día de semana para que la herramienta lo resuelva; "
             "no le pidas a la persona que la reformule. Si falta una hora exacta o hay una ambigüedad real, "
             "preguntá sólo por ese dato."
         )
@@ -210,32 +215,27 @@ def _temporal_context(language: Language, now: datetime | None) -> str:
         "# Temporal context\n"
         f"- Current local date: {date} ({weekday}). Current local time: {time}. "
         f"Time zone: {BUSINESS_TIME_ZONE_NAME}.\n"
-        "- Interpret every relative date and time against this clock. Weeks run Monday through Sunday; "
-        "'next week' means the following calendar week.\n"
-        f"- Current week: {_format_calendar_week(current_week, language)}.\n"
-        f"- Next week: {_format_calendar_week(next_week, language)}.\n"
-        "- If an expression such as 'tomorrow' or 'Wednesday next week' identifies one date without "
-        "ambiguity, resolve it and send the concrete YYYY-MM-DD date to the tool; do not ask the person "
+        "- Interpret every relative date and time against this clock. If the person names a weekday "
+        "—including after saying 'next week'—use its next future occurrence unless they provide an "
+        "absolute date or explicitly identify a different week.\n"
+        f"- Next occurrence by weekday: {upcoming_weekdays}.\n"
+        "- If the person gives an absolute date, send it to the tool as YYYY-MM-DD. If they name a "
+        "weekday such as Wednesday, including in a later turn after saying 'next week', send the weekday "
+        "so the tool resolves it; do not ask the person "
         "to restate it. If an exact time is missing or there is a real ambiguity, ask only for that detail."
     )
 
 
-def _calendar_week(day: calendar_date) -> tuple[calendar_date, ...]:
-    """Devuelve la semana calendario lunes-domingo que contiene ``day``."""
-
-    monday = day - timedelta(days=day.weekday())
-    return tuple(monday + timedelta(days=offset) for offset in range(7))
-
-
-def _format_calendar_week(week: tuple[calendar_date, ...], language: Language) -> str:
-    """Expone un mapa de días precalculado para evitar aritmética del LLM."""
+def _format_upcoming_weekdays(day: date, language: Language) -> str:
+    """Expone la próxima ocurrencia futura de cada día sin aritmética del LLM."""
 
     names = (
         ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
         if language == "es"
         else ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
     )
-    return "; ".join(f"{name}={day.isoformat()}" for name, day in zip(names, week, strict=True))
+    upcoming = (day + timedelta(days=offset) for offset in range(1, 8))
+    return "; ".join(f"{names[target.weekday()]}={target.isoformat()}" for target in upcoming)
 
 
 def _language_from_environment(environment: Mapping[str, str]) -> Language:

@@ -70,7 +70,7 @@ def create_stt() -> inference.STT:
 
 class VoiceDemoAgent(Agent):
     def __init__(self, config: SessionConfig, end_call_tool: object) -> None:
-        self.scenario_session = ScenarioSession(config.scenario)
+        self.scenario_session = ScenarioSession(config.scenario, local_date=config.local_date)
         super().__init__(
             llm=openai.responses.LLM(
                 model="gpt-5.6-luna",
