@@ -38,6 +38,13 @@ def test_prompt_and_tts_follow_the_language_used_by_the_person(language: str) ->
     assert "Speak in the language of the input text" in TTS_INSTRUCTIONS
 
 
+@pytest.mark.parametrize("language", ["es", "en"])
+def test_prompt_keeps_the_previous_language_for_unsupported_input(language: str) -> None:
+    config = resolve_session_config(f'{{"language":"{language}"}}', {})
+
+    assert "third language" in config.system_prompt or "tercer idioma" in config.system_prompt
+
+
 def test_invalid_input_cannot_select_an_unsupported_language() -> None:
     config = resolve_session_config('{"language":"pt"}', {"VOICE_DEMO_LANGUAGE": "pt"})
 
