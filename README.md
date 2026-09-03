@@ -1,158 +1,142 @@
-# Voice Agent demo para LiveKit
+# LiveKit voice agent demo
 
-Runtime Python, bilingüe y sin UI, para mostrar el ciclo de un agente de voz
-con LiveKit Cloud: STT → LLM → TTS. Incluye tres conversaciones mockeadas por
-sesión —Clínica, SaaS B2B y Soporte— y no crea recursos reales.
+[![CI](https://github.com/PucciRomeroTobias/voice-agent-demo/actions/workflows/ci.yml/badge.svg)](https://github.com/PucciRomeroTobias/voice-agent-demo/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-0b7285.svg)](LICENSE)
 
-Cada despliegue pertenece a la cuenta LiveKit de quien lo ejecuta. Este
-repositorio no incluye IDs de agentes, subdominios, credenciales ni una web que
-emita tokens.
+A bilingual, real-time voice agent built with LiveKit Agents and Python. This is the public agent runtime connected to [Tobias Pucci Romero's portfolio](https://tobiaspucci.dev/#demo).
 
-## Qué necesitás
+**[Try the live demo](https://tobiaspucci.dev/#demo)**
 
-- Python 3.10 a 3.14 y [uv](https://docs.astral.sh/uv/).
-- Una cuenta y un proyecto de [LiveKit Cloud](https://cloud.livekit.io/).
-- La [CLI de LiveKit](https://docs.livekit.io/reference/developer-tools/livekit-cli/).
+![The live voice agent embedded in Tobias Pucci Romero's portfolio](docs/images/portfolio-voice-demo.jpg)
 
-LiveKit Cloud inyecta las credenciales de su proyecto en el contenedor. El
-runtime usa Deepgram Nova-3 multilingual mediante LiveKit Inference para STT y
-OpenAI directo para LLM y TTS; `OPENAI_API_KEY` se carga como secreto del agente
-y nunca se expone al navegador.
+The portfolio offers three short, self-contained scenarios: scheduling a clinic appointment, qualifying a B2B SaaS inquiry, and triaging a support request. Every business action is an in-memory mock; the demo never creates appointments, leads, or support cases.
 
-## Ejecutarlo localmente
+## How it works
 
-Cloná el repositorio y prepará el entorno:
+```text
+Portfolio UI → protected token endpoint → LiveKit room → this agent
+                                                    ↓
+                                               STT → LLM → TTS
+                                                    ↓
+                                      structured mock result → UI
+```
 
-```sh
+The portfolio application owns the browser UI, abuse controls, room creation, and short-lived participant tokens. This repository owns the LiveKit agent worker, conversation policy, scenario tools, and structured result contract. The portfolio is deployed separately on Cloudflare Workers; this repository does not publish the website or issue browser tokens.
+
+Each session:
+
+- starts in English or Spanish from validated dispatch metadata;
+- follows the language used in the visitor's latest turn;
+- keeps one immutable scenario configuration for the whole call;
+- publishes a safe mock result on the `voice-demo-result` data topic;
+- ends after completion, inactivity, a user request, or a two-minute hard limit.
+
+The public configuration intentionally prioritizes low operating cost and predictable limits. It therefore does not necessarily use the most advanced available combination of models, infrastructure, capabilities, or output quality. Those choices are appropriate for an open portfolio demo, not a claim about the best production architecture for every use case.
+
+## Repository layout
+
+```text
+src/agent.py                 LiveKit worker entrypoint and session lifecycle
+src/voice_demo/config.py     validated session configuration and prompts
+src/voice_demo/scenarios.py  scenario definitions and in-memory tools
+tests/                       deterministic unit tests
+docs/architecture.md         detailed runtime design
+```
+
+## Run locally
+
+Requirements:
+
+- Python 3.10–3.14
+- [uv](https://docs.astral.sh/uv/)
+- a LiveKit Cloud project
+- an OpenAI API key
+
+Install the locked environment:
+
+```bash
+git clone https://github.com/PucciRomeroTobias/voice-agent-demo.git
+cd voice-agent-demo
 cp .env.example .env.local
-uv sync
+uv sync --locked
 ```
 
-En `.env.local`, cargá las tres credenciales de tu proyecto LiveKit Cloud:
+Fill `.env.local` with credentials from your own accounts. The file is ignored by Git. Never copy values from another deployment or commit a generated `livekit.toml`.
 
-```dotenv
-LIVEKIT_URL=wss://<tu-proyecto>.livekit.cloud
-LIVEKIT_API_KEY=<tu-api-key>
-LIVEKIT_API_SECRET=<tu-api-secret>
-```
+Start an interactive terminal session:
 
-No subas ese archivo. Para conversar con el agente desde la terminal:
-
-```sh
+```bash
 uv run python src/agent.py console
 ```
 
-El modo `console` inicia con saludo en español y escenario Clínica. Para un
-cambio puntual, definí antes de arrancar `VOICE_DEMO_LANGUAGE=en` o
-`VOICE_DEMO_SCENARIO=support`. El idioma inicial no bloquea la conversación: el
-agente responde en español o inglés según la última intervención de la persona.
+Or expose the local worker to a LiveKit client:
 
-Para exponer el worker local a un cliente LiveKit, usá:
-
-```sh
+```bash
 uv run python src/agent.py dev
 ```
 
-## Desplegarlo en tu cuenta de LiveKit Cloud
+Console mode defaults to Spanish and the clinic scenario. You may set `VOICE_DEMO_LANGUAGE` to `en` or `VOICE_DEMO_SCENARIO` to `saas_b2b` or `support` before startup.
 
-Autenticá la CLI y elegí tu proyecto:
+## Dispatch contract
 
-```sh
+The client selects a language and scenario through job metadata:
+
+```json
+{"language":"en","scenario":"support"}
+```
+
+Allowed languages are `en` and `es`. Allowed scenarios are `clinic`, `saas_b2b`, and `support`. Invalid values fall back to safe defaults. A client integrating this worker should enforce the same allowlist before creating a dispatch.
+
+The agent name and explicit dispatch target are `voice-demo`. See [the architecture document](docs/architecture.md) for the complete session and result contracts.
+
+## Test and audit
+
+```bash
+uv sync --locked
+uv run ruff check src tests
+uv run pytest
+uv run pip-audit --skip-editable
+```
+
+CI runs the same checks on every pull request and every push to `main`. Tests do not require cloud credentials and do not make model calls.
+
+## Deploy to LiveKit Cloud
+
+Install and authenticate the [LiveKit CLI](https://docs.livekit.io/home/cli/cli-setup/), select your own project, then create the worker once:
+
+```bash
 lk cloud auth
 lk project list
-lk project set-default "<nombre-de-tu-proyecto>"
+lk project set-default "<your-project>"
+lk agent create --secrets-file /dev/null
 ```
 
-Desde la raíz de este repositorio, creá el agente una única vez. Elegí la región
-que prefieras; el ejemplo usa `us-east`:
+LiveKit generates a local `livekit.toml` for that deployment. It can contain deployment-specific identifiers and is intentionally ignored. Keep credentials in the platform's secret store, not in the repository.
 
-```sh
-lk agent create --region us-east --secrets-file /dev/null
-```
+For later revisions:
 
-Ese comando registra y despliega tu instancia, y genera `livekit.toml` con el
-subdominio e ID de **tu** cuenta. El archivo se ignora a propósito: no lo
-commitees ni lo copies a otro proyecto. LiveKit Cloud provee automáticamente
-`LIVEKIT_URL`, `LIVEKIT_API_KEY` y `LIVEKIT_API_SECRET` al runtime, por lo que
-no deben cargarse como secretos de este agente.
-
-Para desplegar cambios posteriores:
-
-```sh
+```bash
 lk agent deploy --secrets-file /dev/null
 lk agent status
 lk agent logs --log-type deploy
 ```
 
-`status` debe informar una réplica `Running` y los logs deben mostrar el
-registro de `voice-demo`.
+This repository validates deployable code but does not automatically deploy the public portfolio or the LiveKit worker. The live website is published by the separate portfolio project on Cloudflare Workers.
 
-## Probarlo desde Agent Console
+## Privacy and limitations
 
-En el dashboard de LiveKit, abrí **Agent Console**, seleccioná tu agente y
-creá un dispatch explícito. El nombre de dispatch es fijo: `voice-demo`.
+- The worker does not persist audio or transcripts.
+- Model response storage is explicitly disabled by this runtime.
+- Technical latency metrics may be emitted to deployment logs without conversation content.
+- The browser-facing portfolio uses separate server-side credentials and abuse controls; no LiveKit secret belongs in this repository or a browser bundle.
+- The scenarios demonstrate interaction patterns, not medical advice or real business operations.
 
-La configuración se lee de la **metadata del job/dispatch**, no de la metadata
-del participante. Usá JSON válido como estos ejemplos:
+Please report security issues privately through GitHub as described in [SECURITY.md](SECURITY.md).
 
-```json
-{"language":"es","scenario":"clinic"}
-{"language":"es","scenario":"saas_b2b"}
-{"language":"en","scenario":"support"}
-```
+## Contributing
 
-Los idiomas permitidos son `es` y `en`; los escenarios son `clinic`,
-`saas_b2b` y `support`. `language` elige el saludo inicial, pero el STT escucha
-ambos idiomas y el agente acompaña el idioma de la persona en cada turno. Cada
-combinación fija el prompt, la voz y una sola herramienta mockeada durante esa
-sesión. Al completarla, el runtime confirma la gestión, publica un resumen
-estructurado en el tópico de datos `voice-demo-result` y se despide antes de
-cerrar la sesión.
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and open a pull request. Changes to language handling, metadata, or session configuration should include tests.
 
-Cuando `VOICE_OBSERVABILITY_URL` y `VOICE_OBSERVABILITY_TOKEN` están
-configurados, `on_session_end` envía al Worker privado el transcript completo,
-tool calls, eventos y métricas por turno, indexados por el `room_id` `RM_…`.
-Nunca sube audio ni su ruta local. El Worker autentica la escritura y lectura y
-elimina el artefacto a los 30 días. Esta persistencia se usa exclusivamente para
-diagnóstico; los resultados de Clínica, SaaS y Soporte siguen siendo mockeados y
-no crean recursos reales.
+## License
 
-## Operación y límites
-
-Cada sesión pública termina cuando la persona la finaliza, al llegar al máximo
-absoluto de dos minutos o después de tres turnos consecutivos sin respuesta. Tras
-7 segundos de silencio mutuo, el agente hace un primer seguimiento; repite el
-seguimiento 7 segundos después y cierra con una despedida en el tercer turno,
-aproximadamente a los 21 segundos. Si la persona vuelve a hablar, la secuencia se
-cancela y el conteo vuelve a empezar.
-
-Al iniciar cada sesión, el prompt recibe la fecha y hora local de
-`America/Argentina/Buenos_Aires` y un mapa precalculado con la próxima ocurrencia
-futura de cada día. El agente interpreta contra ese mapa frases como “mañana” o
-“el miércoles de la semana que viene” y normaliza las fechas a `YYYY-MM-DD`
-antes de usar una herramienta. Una fecha absoluta o una semana identificada de
-forma explícita prevalecen; sólo pide aclaración cuando falta la hora o la
-expresión es realmente ambigua.
-
-Para volver a una versión anterior, primero inspeccioná las versiones y luego
-indicá explícitamente la que querés restaurar:
-
-```sh
-lk agent versions
-lk agent rollback --version <version-id>
-```
-
-El dashboard de LiveKit muestra estado, errores, uso y límites del proyecto.
-Si construís una UI propia, emití tokens del lado servidor y aplicá tus propios
-límites de costo, autenticación y protección contra abuso; este repositorio no
-incluye esa capa.
-
-## Desarrollo
-
-```sh
-uv sync
-uv run pytest
-uv run ruff check src tests
-```
-
-La arquitectura del runtime está documentada en [docs/architecture.md](docs/architecture.md).
+[MIT](LICENSE) © 2026 Tobias Pucci Romero.

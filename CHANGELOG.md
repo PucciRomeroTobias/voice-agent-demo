@@ -9,6 +9,8 @@ versionado seguirá [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- La exportación privada de transcripciones y datos de sesión. El runtime
+  público ya no persiste audio, transcripciones ni PII.
 - La web standalone, su endpoint de tokens, scripts y dependencias de Node. La
   UI de producto vive fuera de este runtime.
 - La configuración versionada del agente de una cuenta específica de LiveKit.
@@ -20,7 +22,8 @@ versionado seguirá [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   la sesión.
 - `gpt-5.6-luna` usa explícitamente reasoning `none`. El endpointing pasa a modo
   dinámico entre 0,2 y 1,5 segundos y habilita TTS preemptivo para reducir la
-  latencia percibida.
+  latencia percibida. El almacenamiento de respuestas del LLM queda desactivado
+  explícitamente.
 - El STT pasa de `gpt-transcribe` no-streaming a Deepgram Nova-3 multilingual
   mediante LiveKit Inference, con resultados intermedios y alineación por
   palabra. Las interrupciones vuelven al modo adaptativo compatible. Se agregan
@@ -64,9 +67,6 @@ versionado seguirá [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Export privado al finalizar cada sesión con transcript, tool calls, eventos y
-  métricas por turno, autenticado contra el Worker Cloudflare y sin audio. Los
-  artefactos se recuperan por session ID y expiran a los 30 días.
 - Registro de escenarios Clínica, SaaS B2B y Soporte con prompts, voces,
   datos de prueba, mocks deterministas y resultados estructurados por sesión.
 - Runtime inicial de LiveKit Agents en Python.

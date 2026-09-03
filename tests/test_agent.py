@@ -110,7 +110,10 @@ async def test_consecutive_inactivity_nudges_twice_and_closes_on_third_turn(
     assert [call.args[0] for call in session.say.call_args_list] == list(
         INACTIVITY_MESSAGES["es"]
     )
-    assert all(call.kwargs == {"allow_interruptions": True} for call in session.say.call_args_list)
+    assert all(
+        call.kwargs == {"allow_interruptions": True}
+        for call in session.say.call_args_list
+    )
     assert speech.wait_for_playout.await_count == 3
     assert sleep.await_count == 2
     sleep.assert_awaited_with(USER_AWAY_TIMEOUT_SECONDS)
@@ -127,10 +130,22 @@ def test_language_from_code_accepts_supported_bcp47_codes(
     assert language_from_code(code) == expected
 
 
-def test_voice_llm_disables_reasoning_explicitly() -> None:
+def test_voice_llm_uses_bounded_private_generation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    llm = MagicMock()
+    constructor = MagicMock(return_value=llm)
+    monkeypatch.setattr("agent.openai.responses.LLM", constructor)
+
     agent = VoiceDemoAgent(resolve_session_config(None, {}), MagicMock())
 
-    assert agent.llm._opts.reasoning == {"effort": "none"}  # type: ignore[attr-defined]
+    constructor.assert_called_once_with(
+        model="gpt-5.6-luna",
+        reasoning={"effort": "none"},
+        max_output_tokens=300,
+        store=False,
+    )
+    assert agent.llm is llm
 
 
 def test_turn_handling_is_tuned_for_low_latency_and_supported_interruption() -> None:

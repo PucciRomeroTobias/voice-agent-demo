@@ -238,10 +238,20 @@ def _format_upcoming_weekdays(day: date, language: Language) -> str:
     names = (
         ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
         if language == "es"
-        else ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+        else (
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        )
     )
     upcoming = (day + timedelta(days=offset) for offset in range(1, 8))
-    return "; ".join(f"{names[target.weekday()]}={target.isoformat()}" for target in upcoming)
+    return "; ".join(
+        f"{names[target.weekday()]}={target.isoformat()}" for target in upcoming
+    )
 
 
 def _language_from_environment(environment: Mapping[str, str]) -> Language:

@@ -1,41 +1,23 @@
 # Voice Agent Demo
 
-Demo pública bilingüe con LiveKit Cloud. No persistir ni registrar audio,
-transcripciones, PII, tokens ni secretos. El alcance canónico vive en Linear:
-no inventar requisitos fuera del ticket activo.
+This is a public bilingual LiveKit Cloud demo. Never persist or log audio, transcripts, personal data, tokens, secrets, private endpoints, or deployment identifiers.
 
-- `src/agent.py` es el único entrypoint y `AGENT_NAME = "voice-demo"` no cambia.
-- La metadata decide el idioma inicial del saludo. Después, el STT admite
-  español e inglés y el agente responde en el idioma de la última intervención.
-- El reloj de negocio usa `America/Argentina/Buenos_Aires`; cambios en fechas
-  relativas o silencios requieren pruebas deterministas con tiempo inyectado.
-- Configuración, prompts y voces se mantienen fuera del entrypoint; usar
-  funciones simples y sin abstracciones preventivas.
-- `.env.local` es local; `.env.example` sólo contiene nombres de variables.
-- Cambios en idioma, metadata o configuración de sesión requieren pruebas.
+- `src/agent.py` is the only entrypoint and `AGENT_NAME = "voice-demo"` is stable.
+- Job metadata chooses the initial greeting language. STT then accepts Spanish and English, and the agent replies in the language of the latest user turn.
+- Business time uses `America/Argentina/Buenos_Aires`. Changes to relative dates or silence handling require deterministic tests with injected time.
+- Keep configuration, prompts, and voices outside the entrypoint. Prefer simple functions over speculative abstractions.
+- `.env.local`, `livekit.toml`, recordings, transcripts, and deployment-specific data stay local and untracked.
+- Changes to language, metadata, or session configuration require tests.
 
-Antes de entregar un cambio, ejecutar:
+Before submitting a change, run:
 
-```sh
-uv sync
+```bash
+uv sync --locked
 uv run pytest
 uv run ruff check src tests
+uv run pip-audit --skip-editable
 ```
 
-Sólo con credenciales reales en `.env.local`, se puede verificar voz mediante
-`uv run python src/agent.py console`; no simularla.
+Only verify real voice sessions when you have your own credentials in `.env.local`, using `uv run python src/agent.py console`. Do not simulate successful external calls.
 
-Documentar sólo cambios durables: arquitectura en `docs/architecture.md`,
-hallazgos durables en `docs/research/`, comportamiento en `CHANGELOG.md` y
-onboarding en `README.md`. Al cerrar un ticket, registrar resultado y
-verificaciones en Linear. Nunca incluir cambios ajenos en commits o pushes;
-un deploy exige autorización explícita.
-
-## Investigación de dirección y diseño
-
-En iniciativas de marca, producto o diseño con impacto alto, antes de investigar
-o recomendar referencias, stack o una dirección, crear y mantener un brief vivo
-y hacer una entrevista con el usuario. Pedir y analizar sus referencias primero,
-hacer una sola pregunta por vez y ajustar la siguiente según la respuesta. Al
-entregar, explicar en el mensaje las conclusiones, decisiones, trade-offs y el
-próximo paso; un enlace al artefacto no reemplaza esa síntesis.
+Document durable architecture in `docs/architecture.md`, durable research in `docs/research/`, behavior in `CHANGELOG.md`, and onboarding in `README.md`. Never include unrelated local changes in commits or pushes. A deployment requires explicit authorization.

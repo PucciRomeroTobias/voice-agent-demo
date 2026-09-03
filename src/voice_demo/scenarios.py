@@ -16,7 +16,13 @@ Weekday = Literal[
     "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
 ]
 WEEKDAYS: tuple[Weekday, ...] = (
-    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
 )
 
 DEFAULT_SCENARIO: ScenarioId = "clinic"
@@ -133,7 +139,11 @@ SCENARIOS: dict[ScenarioId, ScenarioDefinition] = {
             "es": "Hola, gracias por comunicarte con el equipo de soluciones. ¿En qué podemos ayudarte hoy?",
             "en": "Hello, thanks for contacting the solutions team. How can we help today?",
         },
-        test_data={"primary_need": "operaciones", "demo_date": "2026-09-11", "demo_time": "10:00"},
+        test_data={
+            "primary_need": "operaciones",
+            "demo_date": "2026-09-11",
+            "demo_time": "10:00",
+        },
         tool_name="create_qualified_lead",
         outcome={
             "type": "lead_qualification_simulated",
@@ -177,7 +187,11 @@ SCENARIOS: dict[ScenarioId, ScenarioDefinition] = {
             "es": "Hola, gracias por comunicarte con soporte. ¿En qué puedo ayudarte hoy?",
             "en": "Hello, thanks for contacting support. How can I help today?",
         },
-        test_data={"issue_area": "facturación", "severity": "alto", "issue_summary": "Cobro duplicado"},
+        test_data={
+            "issue_area": "facturación",
+            "severity": "alto",
+            "issue_summary": "Cobro duplicado",
+        },
         tool_name="escalate_support_case",
         outcome={
             "type": "support_escalation_simulated",
@@ -216,7 +230,9 @@ class ScenarioSession:
         }
 
 
-def _with_extra_notes(details: dict[str, str], extra_notes: str | None) -> dict[str, str]:
+def _with_extra_notes(
+    details: dict[str, str], extra_notes: str | None
+) -> dict[str, str]:
     """Agrega una preferencia opcional sólo cuando la persona la compartió."""
 
     if extra_notes:
@@ -281,13 +297,15 @@ def tools_for(session: ScenarioSession) -> list[Callable[..., Any]]:
                 appointment_date, appointment_weekday, session.local_date
             )
             _require_concrete_schedule(appointment_date, appointment_time)
-            return session.record_tool_use(_with_extra_notes(
-                {
-                    "appointment_date": appointment_date,
-                    "appointment_time": appointment_time,
-                },
-                extra_notes,
-            ))
+            return session.record_tool_use(
+                _with_extra_notes(
+                    {
+                        "appointment_date": appointment_date,
+                        "appointment_time": appointment_time,
+                    },
+                    extra_notes,
+                )
+            )
 
         return [reserve_appointment]
 
@@ -311,16 +329,20 @@ def tools_for(session: ScenarioSession) -> list[Callable[..., Any]]:
             demo_weekday: Weekday | None = None,
             extra_notes: str | None = None,
         ) -> dict[str, Any]:
-            demo_date = _resolve_schedule_date(demo_date, demo_weekday, session.local_date)
+            demo_date = _resolve_schedule_date(
+                demo_date, demo_weekday, session.local_date
+            )
             _require_concrete_schedule(demo_date, demo_time)
-            return session.record_tool_use(_with_extra_notes(
-                {
-                    "primary_need": primary_need,
-                    "demo_date": demo_date,
-                    "demo_time": demo_time,
-                },
-                extra_notes,
-            ))
+            return session.record_tool_use(
+                _with_extra_notes(
+                    {
+                        "primary_need": primary_need,
+                        "demo_date": demo_date,
+                        "demo_time": demo_time,
+                    },
+                    extra_notes,
+                )
+            )
 
         return [create_qualified_lead]
 
@@ -338,13 +360,15 @@ def tools_for(session: ScenarioSession) -> list[Callable[..., Any]]:
         issue_summary: str,
         extra_notes: str | None = None,
     ) -> dict[str, Any]:
-        return session.record_tool_use(_with_extra_notes(
-            {
-                "issue_area": issue_area,
-                "severity": severity,
-                "issue_summary": issue_summary,
-            },
-            extra_notes,
-        ))
+        return session.record_tool_use(
+            _with_extra_notes(
+                {
+                    "issue_area": issue_area,
+                    "severity": severity,
+                    "issue_summary": issue_summary,
+                },
+                extra_notes,
+            )
+        )
 
     return [escalate_support_case]

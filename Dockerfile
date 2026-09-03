@@ -40,11 +40,11 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN mkdir -p src
 
-# Install Python dependencies using UV's lock file
+# Install only production dependencies using UV's lock file
 # --locked ensures we use exact versions from uv.lock for reproducible builds
 # This creates a virtual environment and installs all dependencies
 # Ensure your uv.lock file is checked in for consistency across environments
-RUN uv sync --locked
+RUN uv sync --locked --no-dev
 
 # Pre-download any ML models or files the agent needs
 # This runs before COPY . . so the download layer is cached across code-only changes.

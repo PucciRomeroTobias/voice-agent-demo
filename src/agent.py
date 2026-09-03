@@ -23,7 +23,6 @@ from voice_demo.config import (
     SessionConfig,
     resolve_session_config,
 )
-from voice_demo.observability import persist_session_observability
 from voice_demo.scenarios import ScenarioSession, tools_for
 
 load_dotenv(".env.local")
@@ -70,12 +69,15 @@ def create_stt() -> inference.STT:
 
 class VoiceDemoAgent(Agent):
     def __init__(self, config: SessionConfig, end_call_tool: object) -> None:
-        self.scenario_session = ScenarioSession(config.scenario, local_date=config.local_date)
+        self.scenario_session = ScenarioSession(
+            config.scenario, local_date=config.local_date
+        )
         super().__init__(
             llm=openai.responses.LLM(
                 model="gpt-5.6-luna",
                 reasoning={"effort": "none"},
                 max_output_tokens=300,
+                store=False,
             ),
             instructions=config.system_prompt,
             tools=[*tools_for(self.scenario_session), end_call_tool],
@@ -85,7 +87,9 @@ class VoiceDemoAgent(Agent):
 server = AgentServer()
 
 
-async def publish_scenario_result(participant: object, scenario_session: ScenarioSession) -> None:
+async def publish_scenario_result(
+    participant: object, scenario_session: ScenarioSession
+) -> None:
     """Publica el resultado seguro al terminar una herramienta mock."""
 
     await participant.publish_data(  # type: ignore[attr-defined]
@@ -137,7 +141,9 @@ async def end_call_after_goodbye(
     ctx.shutdown(reason)
 
 
-async def end_call_after_limit(session: AgentSession, ctx: JobContext, language: str) -> None:
+async def end_call_after_limit(
+    session: AgentSession, ctx: JobContext, language: str
+) -> None:
     """Advierte y termina una sesión pública que alcanzó su duración máxima."""
 
     await asyncio.sleep(MAX_SESSION_SECONDS)
@@ -214,7 +220,6 @@ def create_end_call_tool(
 
 @server.rtc_session(
     agent_name=AGENT_NAME,
-    on_session_end=persist_session_observability,
 )
 async def voice_demo(ctx: JobContext) -> None:
     """Inicia una sesión cuyo saludo usa el idioma elegido en metadata."""

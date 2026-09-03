@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 livekit.toml
+CLAUDE.md
 .venv/
 __pycache__/
 *.py[cod]

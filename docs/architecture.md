@@ -92,7 +92,9 @@ Para reducir el tiempo de respuesta, `gpt-5.6-luna` recibe
 `reasoning.effort="none"`; omitirlo usaría el default `medium` del modelo. El
 endpointing es dinámico entre `0.2` y `1.5` segundos, con `alpha=0.7`, y la
 generación permite TTS preemptivo. La sesión registra métricas técnicas de EOU,
-TTFT del LLM y TTFB del TTS para distinguir el cuello de botella por turno.
+TTFT del LLM y TTFB del TTS para distinguir el cuello de botella por turno. El
+runtime también envía `store=false` al proveedor del LLM para desactivar el
+almacenamiento de respuestas.
 
 `user_away_timeout` cambia el estado de la persona a `away` luego de 7 segundos
 de silencio mutuo. El runtime hace dos seguimientos deterministas e
@@ -109,28 +111,10 @@ sesión. Su payload contiene escenario, herramientas usadas y el resultado de
 negocio. Cualquier cliente puede consumir ese resumen, sin recibir prompts,
 secretos ni estado interno.
 
-## Observabilidad privada
-
-Al finalizar, `on_session_end` construye una sola vez el `SessionReport` y envía
-un artefacto JSON `schema_version=1` al endpoint privado configurado en
-`VOICE_OBSERVABILITY_URL`. El bearer token vive únicamente como secreto del
-agente y del Worker. El artefacto se indexa por `room_id` —el session ID `RM_…`
-de LiveKit— e incluye transcript completo, eventos, tool calls, opciones, uso y
-métricas por mensaje, además de idioma y escenario. Antes de enviarlo se eliminan
-`audio_recording_path` y `audio_recording_started_at`; no se copia ni persiste
-audio.
-
-El destino es el Worker Cloudflare ya existente, que guarda cada sesión en un
-Durable Object SQLite privado durante 30 días. Tanto escritura como lectura
-requieren el mismo secreto; no hay rutas públicas ni acceso desde el navegador
-del visitante. La exportación es best-effort: un fallo se registra, pero no
-reabre ni prolonga una llamada ya terminada.
-
 ## Límites intencionales
 
-- Sin persistencia de resultados operativos ni integraciones externas reales.
-  El transcript puede contener PII aportada espontáneamente y se conserva sólo
-  en el almacén privado de observabilidad por 30 días para diagnóstico.
+- Sin persistencia de audio, transcripciones, resultados operativos ni
+  integraciones externas reales.
 - Sin secretos en el código ni en archivos versionados.
 - Sin cambios de prompt, voz ni herramientas durante una llamada. La respuesta
   sí acompaña el idioma detectado en cada turno entre español e inglés.
